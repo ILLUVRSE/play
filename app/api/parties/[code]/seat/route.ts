@@ -3,6 +3,9 @@ import { prisma } from '@/lib/prisma';
 import { buildSeatMap } from '@/lib/seatMap';
 import { displayNameSchema, partyCodeSchema } from '@/lib/validation';
 
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 type Params = { params: { code: string } };
 
 export async function POST(req: Request, { params }: Params) {

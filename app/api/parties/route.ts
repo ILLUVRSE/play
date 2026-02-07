@@ -4,6 +4,9 @@ import { detectContentType, hostSchema } from '@/lib/validation';
 import { generatePartyCode } from '@/lib/code';
 import { bestHostSeat } from '@/lib/seatMap';
 
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   const parties = await prisma.party.findMany({
     where: { visibility: 'public', status: 'live' },

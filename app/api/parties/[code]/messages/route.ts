@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { partyCodeSchema } from '@/lib/validation';
 
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 type Params = { params: { code: string } };
 
 export async function GET(_req: Request, { params }: Params) {
