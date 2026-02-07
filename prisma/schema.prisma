@@ -1,0 +1,57 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Party {
+  id         String   @id @default(uuid())
+  code       String   @unique
+  title      String
+  contentType String
+  contentUrl String
+  visibility String   @default("private")
+  maxSeats   Int
+  theme      String?
+  status     String   @default("live")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  participants Participant[]
+  messages   Message[]
+  playback   PlaybackState?
+}
+
+model Participant {
+  id           String   @id @default(uuid())
+  party        Party    @relation(fields: [partyId], references: [id])
+  partyId      String
+  displayName  String
+  seatId       String
+  isHost       Boolean  @default(false)
+  joinedAt     DateTime @default(now())
+  leftAt       DateTime?
+  messages     Message[]
+}
+
+model Message {
+  id            String   @id @default(uuid())
+  party         Party    @relation(fields: [partyId], references: [id])
+  partyId       String
+  participant   Participant? @relation(fields: [participantId], references: [id])
+  participantId String?
+  seatId        String
+  displayName   String
+  text          String
+  createdAt     DateTime @default(now())
+}
+
+model PlaybackState {
+  party       Party   @relation(fields: [partyId], references: [id])
+  partyId     String  @id
+  playing     Boolean @default(false)
+  currentTime Float   @default(0)
+  updatedAt   DateTime @updatedAt
+}
