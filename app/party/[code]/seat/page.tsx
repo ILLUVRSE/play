@@ -121,7 +121,16 @@ export default function SeatSelectionPage() {
   if (!party) {
     return (
       <div>
-        <Header />
+        <header className="sticky top-0 z-20 bg-black/50 backdrop-blur-lg border-b border-white/10">
+          <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+            <Link href="/" className="flex items-center gap-3 font-bold tracking-[0.22em] uppercase text-sm text-white">
+              <span className="h-10 w-10 rounded-xl bg-gradient-to-br from-brand-primary to-brand-primaryLight text-brand-bg grid place-items-center font-mono shadow-glow">
+                IV
+              </span>
+              <span>Illuvrse</span>
+            </Link>
+          </div>
+        </header>
         <main className="max-w-3xl mx-auto px-6 py-12">Loading party...</main>
       </div>
     );
