@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { getPrisma } from '@/lib/prisma';
 import { buildSeatMap } from '@/lib/seatMap';
 import { displayNameSchema, partyCodeSchema } from '@/lib/validation';
 
@@ -9,6 +9,7 @@ export const dynamic = 'force-dynamic';
 type Params = { params: { code: string } };
 
 export async function POST(req: Request, { params }: Params) {
+  const prisma = getPrisma();
   const codeResult = partyCodeSchema.safeParse(params.code);
   if (!codeResult.success) {
     return NextResponse.json({ error: 'Invalid code' }, { status: 400 });

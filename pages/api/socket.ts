@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { Server as HTTPServer } from 'http';
 import { Server as IOServer, Socket } from 'socket.io';
-import { prisma } from '@/lib/prisma';
+import { getPrisma } from '@/lib/prisma';
 import { partyCodeSchema } from '@/lib/validation';
 
 type NextApiResponseServerIO = NextApiResponse & {
@@ -16,6 +16,8 @@ export default function handler(_req: NextApiRequest, res: NextApiResponseServer
   if (res.socket.server.io) {
     return res.end();
   }
+
+  const prisma = getPrisma();
 
   const io = new IOServer(res.socket.server, {
     path: '/api/socket',

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { getPrisma } from '@/lib/prisma';
 import { detectContentType, hostSchema } from '@/lib/validation';
 import { generatePartyCode } from '@/lib/code';
 import { bestHostSeat } from '@/lib/seatMap';
@@ -8,6 +8,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
+  const prisma = getPrisma();
   const parties = await prisma.party.findMany({
     where: { visibility: 'public', status: 'live' },
     take: 8,
@@ -31,6 +32,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const prisma = getPrisma();
   const body = await req.json();
   const parsed = hostSchema.safeParse({
     title: body.title,
