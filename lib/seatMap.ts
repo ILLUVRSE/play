@@ -3,7 +3,10 @@ export type SeatMap = { rows: number; cols: number; seats: string[] };
 export function buildSeatMap(maxSeats: number): SeatMap {
   let rows = 3;
   let cols = 4;
-  if (maxSeats === 24) {
+  if (maxSeats === 6) {
+    rows = 2;
+    cols = 3;
+  } else if (maxSeats === 24) {
     rows = 4;
     cols = 6;
   } else if (maxSeats === 48) {

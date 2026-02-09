@@ -8,18 +8,18 @@ export default async function LandingPage() {
     <div>
       <Header />
       <main className="max-w-6xl mx-auto px-6 py-12 space-y-14">
-        <section className="grid md:grid-cols-2 gap-10 items-start">
+        <section className="grid lg:grid-cols-[1.2fr_0.8fr] gap-10 items-start">
           <div className="space-y-6">
-            <p className="pill inline-block">Host or join with a code</p>
+            <p className="pill inline-block">For watch parties, album drops, and remote hangs</p>
             <h1 className="text-4xl md:text-5xl font-bold leading-tight">
-              Theater parties on demand.
+              Host a theater party in minutes.
               <br />
-              Seats make it social.
+              Friends pick seats, you run the show.
             </h1>
-            <div className="glass p-4 border-brand-primary/30 shadow-glow space-y-3">
-              <label className="text-sm text-white/70">Join with code</label>
-              <InlineJoin />
-            </div>
+            <p className="text-white/70 max-w-xl">
+              ILLUVRSE is built for groups that want synced playback with voice, reactions, and a seat map
+              that feels like a real room.
+            </p>
             <div className="flex gap-4 flex-wrap">
               <Link href="/host" className="button-primary text-base shadow-gold">
                 Host a Party
@@ -29,18 +29,19 @@ export default async function LandingPage() {
               </Link>
             </div>
             <div className="flex gap-2 text-xs text-white/60 flex-wrap uppercase tracking-wide">
-              <span className="pill">Seats = identity</span>
-              <span className="pill">Host controls</span>
-              <span className="pill">Voice & reactions</span>
+              <span className="pill">No sign-up</span>
+              <span className="pill">Seat-based layout</span>
+              <span className="pill">Host moderation</span>
             </div>
           </div>
           <div className="glass p-6 border-white/10 space-y-4 orbital">
-            <div className="text-white/80 text-sm font-semibold uppercase tracking-wide">Flow</div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <Step title="Host" desc="Create room" />
-              <Step title="Share" desc="Drop the code" />
-              <Step title="Seat" desc="Pick your row" />
-              <Step title="Party" desc="Sync + talk" />
+            <div className="text-white/80 text-sm font-semibold uppercase tracking-wide">Join fast</div>
+            <div className="space-y-3">
+              <label className="text-sm text-white/70">Enter a party code</label>
+              <InlineJoin />
+              <div className="text-xs text-white/60">
+                No account needed. Pick a seat and you’re in.
+              </div>
             </div>
           </div>
         </section>

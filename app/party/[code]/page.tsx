@@ -206,9 +206,10 @@ export default function PartyRoomPage() {
   }
 
   return (
-    <div>
+    <div className="relative">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,223,128,0.08),transparent_55%),radial-gradient(circle_at_bottom,rgba(74,108,255,0.12),transparent_50%)]" />
       <Header />
-      <main className="max-w-6xl mx-auto px-6 py-8 space-y-6">
+      <main className="relative max-w-6xl mx-auto px-6 py-8 space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <p className="pill inline-block">Party • {party.code}</p>

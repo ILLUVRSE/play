@@ -12,7 +12,7 @@ export default function HostPage() {
   const [form, setForm] = useState({
     title: '',
     visibility: 'private',
-    maxSeats: 24,
+    maxSeats: 12,
     theme: ''
   });
   const [playlist, setPlaylist] = useState<PlaylistDraft[]>([
@@ -193,9 +193,9 @@ export default function HostPage() {
                 onChange={(e) => update('maxSeats', Number(e.target.value))}
                 className="w-full rounded-xl bg-black/30 border border-brand-primary/40 px-3 py-3"
               >
+                <option value={6}>6</option>
                 <option value={12}>12</option>
                 <option value={24}>24</option>
-                <option value={48}>48</option>
               </select>
             </label>
             <label className="space-y-2">
