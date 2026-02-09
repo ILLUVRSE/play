@@ -29,6 +29,9 @@ export async function POST(req: Request, { params }: Params) {
   if (!party || party.status === 'ended') {
     return NextResponse.json({ error: 'Party not available' }, { status: 404 });
   }
+  if (party.seatLocked) {
+    return NextResponse.json({ error: 'Seats are locked' }, { status: 403 });
+  }
 
   const map = buildSeatMap(party.maxSeats);
   if (!map.seats.includes(seatId)) {

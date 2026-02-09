@@ -46,9 +46,33 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: parsed.error.format() }, { status: 400 });
   }
 
-  const contentType = detectContentType(parsed.data.contentUrl);
-  if (!contentType) {
+  const playlistInput = Array.isArray(body.playlist) ? body.playlist : [];
+  const normalizedPlaylist = playlistInput
+    .map((item: { contentUrl?: string; title?: string }) => ({
+      contentUrl: typeof item?.contentUrl === 'string' ? item.contentUrl.trim() : '',
+      title: typeof item?.title === 'string' ? item.title.trim() : ''
+    }))
+    .filter((item: { contentUrl: string }) => item.contentUrl.length > 0);
+
+  const playlist =
+    normalizedPlaylist.length > 0
+      ? normalizedPlaylist.map((item: { contentUrl: string; title: string }) => {
+          const contentType = detectContentType(item.contentUrl);
+          return contentType ? { ...item, contentType } : null;
+        })
+      : null;
+
+  if (playlist && playlist.some((item: { contentType: string } | null) => !item)) {
     return NextResponse.json({ error: 'Content must be a YouTube, MP3, or MP4 link' }, { status: 400 });
+  }
+
+  const fallbackType = detectContentType(parsed.data.contentUrl);
+  if (!playlist?.length && !fallbackType) {
+    return NextResponse.json({ error: 'Content must be a YouTube, MP3, or MP4 link' }, { status: 400 });
+  }
+  const firstItem = playlist?.[0] || (fallbackType ? { contentUrl: parsed.data.contentUrl, contentType: fallbackType, title: '' } : null);
+  if (!firstItem) {
+    return NextResponse.json({ error: 'Playlist must include at least one media item' }, { status: 400 });
   }
 
   let code = generatePartyCode();
@@ -64,11 +88,19 @@ export async function POST(req: Request) {
     data: {
       code,
       title: parsed.data.title,
-      contentType,
-      contentUrl: parsed.data.contentUrl,
+      contentType: firstItem.contentType,
+      contentUrl: firstItem.contentUrl,
       visibility: parsed.data.visibility,
       maxSeats: parsed.data.maxSeats,
       theme: parsed.data.theme,
+      playlist: {
+        create: (playlist?.length ? playlist : [firstItem]).map((item: { contentType: string; contentUrl: string; title?: string }, index: number) => ({
+          orderIndex: index,
+          contentType: item.contentType,
+          contentUrl: item.contentUrl,
+          title: item.title || null
+        }))
+      },
       participants: {
         create: {
           displayName: 'Host',

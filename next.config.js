@@ -1,8 +1,16 @@
+const path = require('path');
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
   typescript: {
     ignoreBuildErrors: true
+  },
+  trailingSlash: false,
+  skipTrailingSlashRedirect: true,
+  webpack: (config) => {
+    config.resolve.alias['@'] = path.resolve(__dirname);
+    return config;
   },
   async headers() {
     const securityHeaders = [

@@ -7,8 +7,8 @@ import type { Socket } from 'socket.io-client';
 
 type Props = {
   code: string;
-  contentType: 'youtube' | 'mp3' | 'mp4';
-  contentUrl: string;
+  playlist: { contentType: 'youtube' | 'mp3' | 'mp4'; contentUrl: string; title?: string | null }[];
+  currentIndex: number;
   isHost: boolean;
 };
 
@@ -24,19 +24,38 @@ function extractYouTubeId(url: string): string | null {
   return match ? match[1] : null;
 }
 
-export function PartyPlayer({ code, contentType, contentUrl, isHost }: Props) {
+export function PartyPlayer({ code, playlist, currentIndex, isHost }: Props) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const ytRef = useRef<any>(null);
   const socketRef = useRef<Socket | null>(null);
   const [playing, setPlaying] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(currentIndex);
+
+  const activeItem = playlist[activeIndex];
+  const contentType = activeItem?.contentType;
+  const contentUrl = activeItem?.contentUrl;
+
+  useEffect(() => {
+    setActiveIndex(currentIndex);
+  }, [currentIndex]);
+
+  useEffect(() => {
+    if (playlist.length === 0) return;
+    if (activeIndex >= playlist.length) {
+      setActiveIndex(0);
+    }
+  }, [playlist, activeIndex]);
 
   useEffect(() => {
     socketRef.current = ensureSocket(socketRef);
 
-    const syncHandler = (payload: { playing: boolean; currentTime: number }) => {
+    const syncHandler = (payload: { playing: boolean; currentTime: number; currentIndex?: number }) => {
       if (isHost) return;
       setPlaying(payload.playing);
+      if (typeof payload.currentIndex === 'number') {
+        setActiveIndex(payload.currentIndex);
+      }
 
       if (contentType === 'mp3' && audioRef.current) {
         audioRef.current.currentTime = payload.currentTime;
@@ -68,6 +87,10 @@ export function PartyPlayer({ code, contentType, contentUrl, isHost }: Props) {
 
   useEffect(() => {
     if (contentType !== 'youtube') return;
+    if (ytRef.current?.destroy) {
+      ytRef.current.destroy();
+      ytRef.current = null;
+    }
     if (window.YT && window.YT.Player) {
       createYouTubePlayer();
       return;
@@ -76,7 +99,7 @@ export function PartyPlayer({ code, contentType, contentUrl, isHost }: Props) {
     tag.src = 'https://www.youtube.com/iframe_api';
     document.body.appendChild(tag);
     window.onYouTubeIframeAPIReady = createYouTubePlayer;
-  }, [contentUrl]);
+  }, [contentUrl, contentType]);
 
   const createYouTubePlayer = () => {
     const videoId = extractYouTubeId(contentUrl);
@@ -93,19 +116,25 @@ export function PartyPlayer({ code, contentType, contentUrl, isHost }: Props) {
           if (!isHost) return;
           const time = ytRef.current?.getCurrentTime?.() || 0;
           const isPlaying = ytRef.current?.getPlayerState?.() === 1;
+          const ended = ytRef.current?.getPlayerState?.() === 0;
+          if (ended) {
+            hostNextTrack();
+            return;
+          }
           broadcastState(isPlaying, time);
         }
       }
     });
   };
 
-  const broadcastState = (nextPlaying: boolean, currentTime: number) => {
+  const broadcastState = (nextPlaying: boolean, currentTime: number, nextIndex = activeIndex) => {
     setPlaying(nextPlaying);
-    socketRef.current?.emit('playback:state', { code, playing: nextPlaying, currentTime });
+    socketRef.current?.emit('playback:state', { code, playing: nextPlaying, currentTime, currentIndex: nextIndex });
   };
 
   const hostPlayPause = () => {
     if (!isHost) return;
+    if (!contentType) return;
 
     if (contentType === 'mp3' && audioRef.current) {
       if (audioRef.current.paused) {
@@ -142,8 +171,31 @@ export function PartyPlayer({ code, contentType, contentUrl, isHost }: Props) {
     }
   };
 
+  const hostNextTrack = () => {
+    if (!isHost) return;
+    if (activeIndex >= playlist.length - 1) {
+      broadcastState(false, 0, activeIndex);
+      return;
+    }
+    const nextIndex = activeIndex + 1;
+    setActiveIndex(nextIndex);
+    broadcastState(false, 0, nextIndex);
+  };
+
+  const hostPrevTrack = () => {
+    if (!isHost) return;
+    if (activeIndex <= 0) {
+      broadcastState(false, 0, 0);
+      return;
+    }
+    const nextIndex = activeIndex - 1;
+    setActiveIndex(nextIndex);
+    broadcastState(false, 0, nextIndex);
+  };
+
   const hostSyncNow = () => {
     if (!isHost) return;
+    if (!contentType) return;
     if (contentType === 'mp3' && audioRef.current) {
       broadcastState(!audioRef.current.paused, audioRef.current.currentTime);
     }
@@ -161,13 +213,19 @@ export function PartyPlayer({ code, contentType, contentUrl, isHost }: Props) {
       <div className="flex items-center justify-between">
         <div className="text-sm text-white/70">Screen</div>
         {isHost ? (
-          <div className="flex gap-2 items-center">
+          <div className="flex gap-2 items-center flex-wrap">
             <button
               className={`button-primary text-base shadow-gold px-5 py-3 ${playing ? '' : 'animate-pulse'}`}
               onClick={hostPlayPause}
               aria-label={playing ? 'Pause playback' : 'Play playback'}
             >
               {playing ? 'Pause' : 'Play'}
+            </button>
+            <button className="button-ghost text-sm border-brand-primary/40" onClick={hostPrevTrack}>
+              Prev
+            </button>
+            <button className="button-ghost text-sm border-brand-primary/40" onClick={hostNextTrack}>
+              Next
             </button>
             <button
               className="button-ghost text-sm border-brand-primary/40"
@@ -182,7 +240,9 @@ export function PartyPlayer({ code, contentType, contentUrl, isHost }: Props) {
         )}
       </div>
       <div className="relative aspect-video w-full max-h-[420px] overflow-hidden rounded-2xl bg-black border border-brand-primary/30 shadow-glow">
-        {contentType === 'youtube' ? (
+        {!contentType || !contentUrl ? (
+          <div className="w-full h-full grid place-items-center text-sm text-white/60">No media queued.</div>
+        ) : contentType === 'youtube' ? (
           <div id="yt-player" className="w-full h-full" />
         ) : contentType === 'mp3' ? (
           <div className="w-full h-full grid place-items-center p-6">
@@ -193,6 +253,7 @@ export function PartyPlayer({ code, contentType, contentUrl, isHost }: Props) {
               src={contentUrl}
               onPlay={() => isHost && broadcastState(true, audioRef.current?.currentTime || 0)}
               onPause={() => isHost && broadcastState(false, audioRef.current?.currentTime || 0)}
+              onEnded={() => isHost && hostNextTrack()}
             />
           </div>
         ) : (
@@ -204,6 +265,7 @@ export function PartyPlayer({ code, contentType, contentUrl, isHost }: Props) {
               src={contentUrl}
               onPlay={() => isHost && broadcastState(true, videoRef.current?.currentTime || 0)}
               onPause={() => isHost && broadcastState(false, videoRef.current?.currentTime || 0)}
+              onEnded={() => isHost && hostNextTrack()}
             />
           </div>
         )}

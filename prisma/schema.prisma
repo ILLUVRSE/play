@@ -16,12 +16,16 @@ model Party {
   visibility String   @default("private")
   maxSeats   Int
   theme      String?
+  currentIndex Int     @default(0)
+  micLocked  Boolean  @default(false)
+  seatLocked Boolean  @default(false)
   status     String   @default("live")
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   participants Participant[]
   messages   Message[]
   playback   PlaybackState?
+  playlist   PlaylistItem[]
 }
 
 model Participant {
@@ -31,6 +35,7 @@ model Participant {
   displayName  String
   seatId       String
   isHost       Boolean  @default(false)
+  muted        Boolean  @default(false)
   joinedAt     DateTime @default(now())
   leftAt       DateTime?
   messages     Message[]
@@ -54,4 +59,15 @@ model PlaybackState {
   playing     Boolean @default(false)
   currentTime Float   @default(0)
   updatedAt   DateTime @updatedAt
+}
+
+model PlaylistItem {
+  id          String   @id @default(uuid())
+  party       Party    @relation(fields: [partyId], references: [id])
+  partyId     String
+  orderIndex  Int
+  contentType String
+  contentUrl  String
+  title       String?
+  createdAt   DateTime @default(now())
 }

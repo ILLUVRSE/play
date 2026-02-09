@@ -4,13 +4,13 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Header } from '@/components/Header';
 import { PartyPlayer } from '@/components/PartyPlayer';
-import { ChatPanel } from '@/components/ChatPanel';
 import { ReactionBar } from '@/components/ReactionBar';
 import { PresenceBar } from '@/components/PresenceBar';
+import { VoiceGrid } from '@/components/VoiceGrid';
 import { ensureSocket } from '@/lib/socketClient';
 import type { Socket } from 'socket.io-client';
 
-type Participant = { seatId: string; displayName: string; isHost: boolean };
+type Participant = { id: string; seatId: string; displayName: string; isHost: boolean; muted: boolean };
 type Party = {
   code: string;
   title: string;
@@ -19,6 +19,11 @@ type Party = {
   maxSeats: number;
   participants: Participant[];
   status: string;
+  seatMap: { rows: number; cols: number; seats: string[] };
+  playlist: { id: string; orderIndex: number; contentType: 'youtube' | 'mp3' | 'mp4'; contentUrl: string; title?: string | null }[];
+  currentIndex: number;
+  micLocked: boolean;
+  seatLocked: boolean;
 };
 
 export default function HostPartyView() {
@@ -28,34 +33,126 @@ export default function HostPartyView() {
   const [party, setParty] = useState<Party | null>(null);
   const [copied, setCopied] = useState(false);
   const socketRef = useRef<Socket | null>(null);
-  const seatId = 'A-1';
+  const seatId = typeof window !== 'undefined' ? localStorage.getItem(`party-${code}-seat`) || 'A-1' : 'A-1';
   const displayName = 'Host';
   const participantId = typeof window !== 'undefined' ? localStorage.getItem(`party-${code}-participant`) || '' : '';
+  const [micLocked, setMicLocked] = useState(false);
+  const [seatLocked, setSeatLocked] = useState(false);
+  const [playlist, setPlaylist] = useState<Party['playlist']>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {
     fetch(`/api/parties/${code}`)
       .then((res) => res.json())
-      .then((data) => setParty(data))
+      .then((data) => {
+        setParty(data);
+        setMicLocked(Boolean(data?.micLocked));
+        setSeatLocked(Boolean(data?.seatLocked));
+        const basePlaylist = Array.isArray(data?.playlist) ? data.playlist : [];
+        setPlaylist(
+          basePlaylist.length
+            ? basePlaylist
+            : [
+                {
+                  id: 'fallback',
+                  orderIndex: 0,
+                  contentType: data?.contentType,
+                  contentUrl: data?.contentUrl,
+                  title: data?.title
+                }
+              ]
+        );
+        setCurrentIndex(Number(data?.currentIndex || 0));
+      })
       .catch(() => {});
   }, [code]);
 
   useEffect(() => {
     socketRef.current = ensureSocket(socketRef);
-    const seatHandler = (payload: { seatId: string; displayName: string }) => {
+    const seatHandler = (payload: { participantId: string; seatId: string; displayName: string; isHost: boolean; muted: boolean }) => {
       setParty((prev) =>
         prev
           ? {
               ...prev,
-              participants: [...prev.participants, { seatId: payload.seatId, displayName: payload.displayName, isHost: false }]
+              participants: [
+                ...prev.participants.filter((p) => p.id !== payload.participantId),
+                {
+                  id: payload.participantId,
+                  seatId: payload.seatId,
+                  displayName: payload.displayName,
+                  isHost: payload.isHost,
+                  muted: payload.muted
+                }
+              ]
             }
           : prev
       );
     };
+    const presenceHandler = (payload: { participantId?: string; seatId?: string; displayName?: string; isHost?: boolean; muted?: boolean; left?: boolean }) => {
+      if (!payload?.participantId) return;
+      setParty((prev) => {
+        if (!prev) return prev;
+        if (payload.left) {
+          return { ...prev, participants: prev.participants.filter((p) => p.id !== payload.participantId) };
+        }
+        if (!payload.seatId || !payload.displayName) return prev;
+        const next = prev.participants.filter((p) => p.id !== payload.participantId);
+        next.push({
+          id: payload.participantId,
+          seatId: payload.seatId,
+          displayName: payload.displayName,
+          isHost: Boolean(payload.isHost),
+          muted: Boolean(payload.muted)
+        });
+        return { ...prev, participants: next };
+      });
+    };
+    const muteHandler = (payload: { participantId?: string; muted?: boolean }) => {
+      if (!payload?.participantId) return;
+      setParty((prev) =>
+        prev
+          ? {
+              ...prev,
+              participants: prev.participants.map((p) =>
+                p.id === payload.participantId ? { ...p, muted: Boolean(payload.muted) } : p
+              )
+            }
+          : prev
+      );
+    };
+    const micLockHandler = (payload: { locked?: boolean }) => {
+      setMicLocked(Boolean(payload?.locked));
+    };
+    const seatLockHandler = (payload: { locked?: boolean }) => {
+      setSeatLocked(Boolean(payload?.locked));
+    };
+    const playlistHandler = (payload: { playlist?: Party['playlist'] }) => {
+      if (Array.isArray(payload?.playlist)) {
+        setPlaylist(payload.playlist);
+      }
+    };
+    const playbackHandler = (payload: { currentIndex?: number }) => {
+      if (typeof payload?.currentIndex === 'number') {
+        setCurrentIndex(payload.currentIndex);
+      }
+    };
     socketRef.current.on('seat:update', seatHandler);
+    socketRef.current.on('presence:update', presenceHandler);
+    socketRef.current.on('voice:mute', muteHandler);
+    socketRef.current.on('voice:micLock', micLockHandler);
+    socketRef.current.on('seat:lock', seatLockHandler);
+    socketRef.current.on('playlist:update', playlistHandler);
+    socketRef.current.on('playback:state', playbackHandler);
     socketRef.current.emit('party:join', { code, participantId });
     return () => {
       if (!socketRef.current) return;
       socketRef.current.off('seat:update', seatHandler);
+      socketRef.current.off('presence:update', presenceHandler);
+      socketRef.current.off('voice:mute', muteHandler);
+      socketRef.current.off('voice:micLock', micLockHandler);
+      socketRef.current.off('seat:lock', seatLockHandler);
+      socketRef.current.off('playlist:update', playlistHandler);
+      socketRef.current.off('playback:state', playbackHandler);
       socketRef.current.emit('party:leave', { code, participantId });
     };
   }, [code, participantId]);
@@ -73,6 +170,40 @@ export default function HostPartyView() {
     await navigator.clipboard.writeText(code);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1500);
+  };
+
+  const toggleMicLock = () => {
+    socketRef.current?.emit('host:micLock', { code, locked: !micLocked });
+    setMicLocked((prev) => !prev);
+  };
+
+  const toggleSeatLock = () => {
+    socketRef.current?.emit('host:seatLock', { code, locked: !seatLocked });
+    setSeatLocked((prev) => !prev);
+  };
+
+  const updateOrder = (orderedIds: string[]) => {
+    setPlaylist((prev) => orderedIds.map((id) => prev.find((item) => item.id === id)).filter(Boolean) as Party['playlist']);
+    socketRef.current?.emit('playlist:update', { code, orderedIds });
+  };
+
+  const moveItem = (id: string, direction: -1 | 1) => {
+    const index = playlist.findIndex((item) => item.id === id);
+    if (index < 0) return;
+    const nextIndex = index + direction;
+    if (nextIndex < 0 || nextIndex >= playlist.length) return;
+    const next = [...playlist];
+    const [item] = next.splice(index, 1);
+    next.splice(nextIndex, 0, item);
+    updateOrder(next.map((p) => p.id));
+  };
+
+  const sendMute = (targetId: string, muted: boolean) => {
+    socketRef.current?.emit(muted ? 'host:mute' : 'host:unmute', { code, targetParticipantId: targetId });
+  };
+
+  const sendKick = (targetId: string) => {
+    socketRef.current?.emit('host:kick', { code, targetParticipantId: targetId });
   };
 
   if (!party) {
@@ -110,7 +241,7 @@ export default function HostPartyView() {
 
         <div className="glass px-4 py-3 border-brand-primary/30 text-sm text-white/80 max-w-3xl">
           <div className="font-semibold text-white">How this works</div>
-          <p className="text-white/60 text-sm">Press Play to start. Guests follow your playback, chat, and react.</p>
+          <p className="text-white/60 text-sm">Press Play to start. Guests follow your playback, talk, and react.</p>
         </div>
 
         <PresenceBar maxSeats={party.maxSeats} participants={party.participants} seatId={seatId} />
@@ -119,10 +250,38 @@ export default function HostPartyView() {
           <div className="space-y-4">
             <PartyPlayer
               code={party.code}
-              contentType={party.contentType}
-              contentUrl={party.contentUrl}
+              playlist={playlist}
+              currentIndex={currentIndex}
               isHost
             />
+            <section className="glass p-4 border-brand-primary/30 text-sm text-white/80 space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="font-semibold text-white">Playlist</h2>
+                <div className="text-xs text-white/60">
+                  Now playing: {playlist[currentIndex]?.title || `Item ${currentIndex + 1}`}
+                </div>
+              </div>
+              <div className="text-xs text-white/60">
+                Up next: {playlist[currentIndex + 1]?.title || 'End of playlist'}
+              </div>
+              <div className="space-y-2">
+                {playlist.map((item, index) => (
+                  <div key={item.id} className={`flex items-center justify-between text-xs ${index === currentIndex ? 'text-brand-glow' : 'text-white/70'}`}>
+                    <span>
+                      {index + 1}. {item.title || item.contentUrl}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button className="button-ghost text-xs border-brand-primary/40" onClick={() => moveItem(item.id, -1)} disabled={index === 0}>
+                        Up
+                      </button>
+                      <button className="button-ghost text-xs border-brand-primary/40" onClick={() => moveItem(item.id, 1)} disabled={index === playlist.length - 1}>
+                        Down
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
             <div className="glass p-4 border-brand-primary/30 text-sm text-white/80 space-y-2">
               <div className="font-semibold text-white">Host powers</div>
               <div className="text-white/60 text-sm">Play/Pause, force sync, and end the party.</div>
@@ -130,13 +289,46 @@ export default function HostPartyView() {
             </div>
             <ReactionBar code={party.code} seatId={seatId} displayName={displayName} />
           </div>
-          <div className="h-full min-h-[480px]">
-            <ChatPanel
+          <div className="h-full min-h-[480px] space-y-4">
+            <section className="glass p-4 border-brand-primary/30 text-sm text-white/80 space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="font-semibold text-white">Moderation</h2>
+                <div className="flex items-center gap-2">
+                  <button className="button-ghost text-xs border-brand-primary/40" onClick={toggleMicLock}>
+                    {micLocked ? 'Unlock mics' : 'Lock mics'}
+                  </button>
+                  <button className="button-ghost text-xs border-brand-primary/40" onClick={toggleSeatLock}>
+                    {seatLocked ? 'Unlock seats' : 'Lock seats'}
+                  </button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                {party.participants
+                  .filter((p) => !p.isHost)
+                  .map((participant) => (
+                    <div key={participant.id} className="flex items-center justify-between text-xs text-white/70">
+                      <span>{participant.displayName} • {participant.seatId}</span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          className="button-ghost text-xs border-brand-primary/40"
+                          onClick={() => sendMute(participant.id, !participant.muted)}
+                        >
+                          {participant.muted ? 'Unmute' : 'Mute'}
+                        </button>
+                        <button className="button-ghost text-xs border-red-400/40 text-red-200" onClick={() => sendKick(participant.id)}>
+                          Kick
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </section>
+            <VoiceGrid
               code={party.code}
-              seatId={seatId}
-              displayName={displayName}
+              seatMap={party.seatMap}
+              participants={party.participants}
               participantId={participantId}
-              isHost
+              micLocked={micLocked}
             />
           </div>
         </div>

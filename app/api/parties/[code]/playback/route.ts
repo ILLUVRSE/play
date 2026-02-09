@@ -21,7 +21,7 @@ export async function GET(_req: Request, { params }: Params) {
     return NextResponse.json({ error: 'Party not found' }, { status: 404 });
   }
 
-  return NextResponse.json(party.playback);
+  return NextResponse.json({ ...party.playback, currentIndex: party.currentIndex });
 }
 
 export async function POST(req: Request, { params }: Params) {
@@ -45,12 +45,17 @@ export async function POST(req: Request, { params }: Params) {
 
   const playing = Boolean(body.playing);
   const currentTime = Number(body.currentTime || 0);
+  const currentIndex = Number(body.currentIndex || 0);
 
   const updated = await prisma.playbackState.upsert({
     where: { partyId: party.id },
     update: { playing, currentTime },
     create: { partyId: party.id, playing, currentTime }
   });
+  await prisma.party.update({
+    where: { id: party.id },
+    data: { currentIndex }
+  });
 
-  return NextResponse.json(updated);
+  return NextResponse.json({ ...updated, currentIndex });
 }

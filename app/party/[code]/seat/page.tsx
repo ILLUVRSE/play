@@ -12,8 +12,9 @@ type Party = {
   title: string;
   maxSeats: number;
   seatMap: { seats: string[] };
-  participants: { seatId: string; displayName: string }[];
+  participants: { id: string; seatId: string; displayName: string }[];
   status: string;
+  seatLocked: boolean;
 };
 
 function initialsFor(name: string) {
@@ -29,6 +30,7 @@ export default function SeatSelectionPage() {
   const [party, setParty] = useState<Party | null>(null);
   const [selected, setSelected] = useState('');
   const [error, setError] = useState('');
+  const [seatLocked, setSeatLocked] = useState(false);
   const socketRef = useRef<Socket | null>(null);
 
   const displayName =
@@ -44,25 +46,39 @@ export default function SeatSelectionPage() {
         return res.json();
       })
       .then((data) => {
-        if (data) setParty(data);
+        if (data) {
+          setParty(data);
+          setSeatLocked(Boolean(data.seatLocked));
+        }
       })
       .catch(() => setError('Party not found.'));
   }, [code]);
 
   useEffect(() => {
     socketRef.current = ensureSocket(socketRef);
-    const seatHandler = (payload: { seatId: string }) => {
+    const seatHandler = (payload: { participantId: string; seatId: string; displayName: string }) => {
       setParty((prev) =>
         prev
-          ? { ...prev, participants: [...prev.participants, { seatId: payload.seatId }] }
+          ? {
+              ...prev,
+              participants: [
+                ...prev.participants.filter((p) => p.id !== payload.participantId),
+                { id: payload.participantId, seatId: payload.seatId, displayName: payload.displayName }
+              ]
+            }
           : prev
       );
     };
+    const seatLockHandler = (payload: { locked?: boolean }) => {
+      setSeatLocked(Boolean(payload?.locked));
+    };
     socketRef.current.on('seat:update', seatHandler);
+    socketRef.current.on('seat:lock', seatLockHandler);
     socketRef.current.emit('party:join', { code });
     return () => {
       if (!socketRef.current) return;
       socketRef.current.off('seat:update', seatHandler);
+      socketRef.current.off('seat:lock', seatLockHandler);
       socketRef.current.emit('party:leave', { code });
     };
   }, [code]);
@@ -92,6 +108,10 @@ export default function SeatSelectionPage() {
   const reserveSeat = async () => {
     if (!displayName) {
       setError('Missing display name. Go back to Join.');
+      return;
+    }
+    if (seatLocked) {
+      setError('Seats are locked. Ask the host to unlock.');
       return;
     }
     if (!selected) {
@@ -166,7 +186,7 @@ export default function SeatSelectionPage() {
             <div className="space-y-2">
               <p className="pill inline-block">Pick your seat</p>
               <h1 className="text-3xl font-bold">Choose a seat to join</h1>
-              <p className="text-white/70">You’ll appear as A-3 in chat and reactions. Your seat is your identity.</p>
+              <p className="text-white/70">You’ll appear as A-3 in voice and reactions. Your seat is your identity.</p>
             </div>
             <div className="glass p-6 border-brand-primary/30 orbital">
               <div className="flex items-center justify-between text-sm text-white/70">
@@ -190,10 +210,10 @@ export default function SeatSelectionPage() {
                 )}
               </div>
               <button
-                className={`button-primary shadow-gold text-base px-6 py-4 ${selected ? 'animate-pulse' : 'opacity-60 cursor-not-allowed'}`}
+                className={`button-primary shadow-gold text-base px-6 py-4 ${selected && !seatLocked ? 'animate-pulse' : 'opacity-60 cursor-not-allowed'}`}
                 onClick={reserveSeat}
-                disabled={!selected}
-                aria-disabled={!selected}
+                disabled={!selected || seatLocked}
+                aria-disabled={!selected || seatLocked}
               >
                 Join the party
               </button>
@@ -219,7 +239,8 @@ export default function SeatSelectionPage() {
             <div className="glass p-4 border-brand-primary/30 text-sm text-white/80 space-y-2">
               <div className="font-semibold text-white">Quick tips</div>
               <div className="text-white/60 text-sm">Seats are first-come, first-served.</div>
-              <div className="text-white/60 text-sm">Your seat label appears next to every chat message.</div>
+              <div className="text-white/60 text-sm">Your seat label appears on your video tile.</div>
+              {seatLocked ? <div className="text-red-200 text-sm">Seats are locked by the host.</div> : null}
             </div>
           </aside>
         </div>
