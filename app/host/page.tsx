@@ -21,7 +21,7 @@ export default function HostPage() {
     e.preventDefault();
     setError('');
     if (!detectContentType(form.contentUrl)) {
-      setError('Content must be a valid YouTube or MP3 link');
+      setError('Content must be a valid YouTube, MP3, or MP4 link');
       return;
     }
     setLoading(true);
@@ -73,13 +73,13 @@ export default function HostPage() {
               />
             </label>
             <label className="space-y-2">
-              <span className="text-sm text-white/70">Media link (YouTube or MP3)</span>
+            <span className="text-sm text-white/70">Media link (YouTube, MP3, or MP4)</span>
               <input
                 value={form.contentUrl}
                 onChange={(e) => update('contentUrl', e.target.value)}
                 required
                 className="w-full rounded-xl bg-black/30 border border-brand-primary/40 px-3 py-3 font-mono focus:outline-none focus:ring-2 focus:ring-brand-glow"
-                placeholder="https://youtube.com/watch?v=..."
+                placeholder="https://youtube.com/watch?v=... or https://example.com/video.mp4"
               />
             </label>
           </div>

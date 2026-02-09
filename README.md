@@ -21,7 +21,7 @@ Code-based theater parties: host drops a YouTube or MP3 link, gets a party code,
 - `DATABASE_URL` (Postgres connection, e.g., `postgresql://storysphere:storysphere@localhost:5432/illuvrse`)
 - `NEXT_PUBLIC_BASE_URL` (e.g., `http://localhost:3000`)
 - `NEXT_PUBLIC_SOCKET_URL` (leave blank to use same origin)
-- `OPENAI_API_KEY` (server-side preferred for MemeMachine)
+- `OPENAI_API_KEY` (server-side preferred)
 - `CONTROL_ENABLED` (set `true` to unlock /control settings page; defaults to false)
 3. Prisma  
    ```bash
@@ -78,7 +78,7 @@ npm start
 ## Control page
 - `/control` is locked unless `CONTROL_ENABLED=true` (or in dev).
 - OpenAI key entered there stays in browser localStorage only; not persisted.
-- MemeMachine defaults, client cooldown, and local rate limits are configurable per device.
+- Client cooldowns and local rate limits are configurable per device.
 
 ## Verification (executed)
 - `npm install`

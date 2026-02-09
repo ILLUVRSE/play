@@ -48,7 +48,7 @@ export async function POST(req: Request) {
 
   const contentType = detectContentType(parsed.data.contentUrl);
   if (!contentType) {
-    return NextResponse.json({ error: 'Content must be a YouTube or MP3 link' }, { status: 400 });
+    return NextResponse.json({ error: 'Content must be a YouTube, MP3, or MP4 link' }, { status: 400 });
   }
 
   let code = generatePartyCode();

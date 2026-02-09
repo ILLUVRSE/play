@@ -24,10 +24,21 @@ export const hostSchema = z.object({
   theme: z.string().trim().max(40).optional()
 });
 
-export type HostPayload = z.infer<typeof hostSchema> & { contentType: 'youtube' | 'mp3' };
+// Allow youtube | mp3 | mp4
+export type HostPayload = z.infer<typeof hostSchema> & { contentType: 'youtube' | 'mp3' | 'mp4' };
 
-export function detectContentType(url: string): 'youtube' | 'mp3' | null {
+/**
+ * Detect content type from a URL:
+ * - YouTube -> 'youtube'
+ * - .mp3 -> 'mp3'
+ * - .mp4 -> 'mp4'
+ * Returns null if unknown.
+ */
+export function detectContentType(url: string): 'youtube' | 'mp3' | 'mp4' | null {
+  if (!url || typeof url !== 'string') return null;
   if (youtubeRegex.test(url)) return 'youtube';
-  if (url.toLowerCase().includes('.mp3')) return 'mp3';
+  const lower = url.toLowerCase();
+  if (lower.includes('.mp3')) return 'mp3';
+  if (lower.includes('.mp4')) return 'mp4';
   return null;
 }

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Header } from '@/components/Header';
 import { InlineJoin } from '@/components/InlineJoin';
-import { MemeMachinePanel } from '@/components/mememachine/MemeMachinePanel';
+// MemeMachine removed
 
 export default async function LandingPage() {
   return (
@@ -47,12 +47,8 @@ export default async function LandingPage() {
 
         <section className="space-y-3">
           <div>
-            <h2 className="text-2xl font-semibold">MemeMachine</h2>
-            <p className="text-white/60 text-sm">Turn any idea into a meme. Make it chaotic.</p>
-          </div>
-          <MemeMachinePanel compact />
-          <div className="flex justify-end">
-            <Link href="/mememachine" className="button-ghost border-brand-primary/40">Open full MemeMachine</Link>
+            <h2 className="text-2xl font-semibold">Party Tools</h2>
+            <p className="text-white/60 text-sm">Host, seat, sync playback, chat and react. That’s the core experience.</p>
           </div>
         </section>
       </main>
