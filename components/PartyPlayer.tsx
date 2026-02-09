@@ -70,7 +70,7 @@ export function PartyPlayer({ code, playlist, currentIndex, isHost }: Props) {
       }
 
       const seekIfNeeded = (current: number, desired: number, setter?: (v: number) => void) => {
-        if (Math.abs(current - desired) > 0.5) {
+        if (Math.abs(current - desired) > 0.2) {
           if (typeof setter === 'function') setter(desired);
         }
       };

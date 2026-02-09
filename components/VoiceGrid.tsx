@@ -28,21 +28,27 @@ function SeatTile({
   displayName,
   trackRef,
   muted,
-  isHost
+  isHost,
+  hasParticipant,
+  hasVideo
 }: {
   seatId: string;
   displayName?: string;
   trackRef?: any;
   muted?: boolean;
   isHost?: boolean;
+  hasParticipant?: boolean;
+  hasVideo?: boolean;
 }) {
   return (
     <div className={`rounded-lg overflow-hidden border ${isHost ? 'border-yellow-400/60' : 'border-white/10'} bg-black/40`}>
       <div className="relative aspect-video">
-        {trackRef ? (
+        {hasVideo && trackRef ? (
           <VideoTrack trackRef={trackRef} className="absolute inset-0 w-full h-full object-cover" />
         ) : (
-          <div className="absolute inset-0 grid place-items-center text-white/40 text-sm">Empty seat</div>
+          <div className="absolute inset-0 grid place-items-center text-white/40 text-sm">
+            {hasParticipant ? 'Camera off' : 'Empty seat'}
+          </div>
         )}
         <div className="absolute top-2 left-2 text-xs bg-black/70 px-2 py-0.5 rounded">{seatId}</div>
         {displayName ? (
@@ -129,6 +135,8 @@ function VoiceRoom({
           const participant = participantsBySeat.get(seatId);
           const trackRef = participant ? tracksByIdentity.get(participant.id) : null;
           const lkParticipant = trackRef?.participant;
+          const cameraPublication = lkParticipant?.getTrackPublication?.(Track.Source.Camera);
+          const hasVideo = Boolean(cameraPublication && !cameraPublication.isMuted && cameraPublication.track);
           const micMuted =
             participant?.muted ||
             lkParticipant?.getTrackPublication?.(Track.Source.Microphone)?.isMuted ||
@@ -141,6 +149,8 @@ function VoiceRoom({
               trackRef={trackRef}
               muted={micMuted}
               isHost={participant?.isHost}
+              hasParticipant={Boolean(participant)}
+              hasVideo={hasVideo}
             />
           );
         })}
