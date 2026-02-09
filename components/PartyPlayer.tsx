@@ -7,7 +7,7 @@ import type { Socket } from 'socket.io-client';
 
 type Props = {
   code: string;
-  contentType: 'youtube' | 'mp3';
+  contentType: 'youtube' | 'mp3' | 'mp4';
   contentUrl: string;
   isHost: boolean;
 };
@@ -26,6 +26,7 @@ function extractYouTubeId(url: string): string | null {
 
 export function PartyPlayer({ code, contentType, contentUrl, isHost }: Props) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   const ytRef = useRef<any>(null);
   const socketRef = useRef<Socket | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -36,10 +37,21 @@ export function PartyPlayer({ code, contentType, contentUrl, isHost }: Props) {
     const syncHandler = (payload: { playing: boolean; currentTime: number }) => {
       if (isHost) return;
       setPlaying(payload.playing);
+
       if (contentType === 'mp3' && audioRef.current) {
         audioRef.current.currentTime = payload.currentTime;
         payload.playing ? audioRef.current.play().catch(() => {}) : audioRef.current.pause();
       }
+
+      if (contentType === 'mp4' && videoRef.current) {
+        try {
+          videoRef.current.currentTime = payload.currentTime;
+        } catch {
+          // ignore
+        }
+        payload.playing ? videoRef.current.play().catch(() => {}) : videoRef.current.pause();
+      }
+
       if (contentType === 'youtube' && ytRef.current) {
         ytRef.current.seekTo(payload.currentTime, true);
         payload.playing ? ytRef.current.playVideo() : ytRef.current.pauseVideo();
@@ -94,6 +106,7 @@ export function PartyPlayer({ code, contentType, contentUrl, isHost }: Props) {
 
   const hostPlayPause = () => {
     if (!isHost) return;
+
     if (contentType === 'mp3' && audioRef.current) {
       if (audioRef.current.paused) {
         audioRef.current.play();
@@ -104,7 +117,20 @@ export function PartyPlayer({ code, contentType, contentUrl, isHost }: Props) {
       }
       return;
     }
+
+    if (contentType === 'mp4' && videoRef.current) {
+      if (videoRef.current.paused) {
+        videoRef.current.play();
+        broadcastState(true, videoRef.current.currentTime);
+      } else {
+        videoRef.current.pause();
+        broadcastState(false, videoRef.current.currentTime);
+      }
+      return;
+    }
+
     if (contentType === 'youtube' && ytRef.current) {
+      if (typeof ytRef.current.getPlayerState !== 'function') return;
       const state = ytRef.current.getPlayerState();
       if (state === 1) {
         ytRef.current.pauseVideo();
@@ -121,7 +147,11 @@ export function PartyPlayer({ code, contentType, contentUrl, isHost }: Props) {
     if (contentType === 'mp3' && audioRef.current) {
       broadcastState(!audioRef.current.paused, audioRef.current.currentTime);
     }
+    if (contentType === 'mp4' && videoRef.current) {
+      broadcastState(!videoRef.current.paused, videoRef.current.currentTime);
+    }
     if (contentType === 'youtube' && ytRef.current) {
+      if (typeof ytRef.current.getPlayerState !== 'function') return;
       broadcastState(ytRef.current.getPlayerState() === 1, ytRef.current.getCurrentTime());
     }
   };
@@ -154,7 +184,7 @@ export function PartyPlayer({ code, contentType, contentUrl, isHost }: Props) {
       <div className="relative aspect-video w-full max-h-[420px] overflow-hidden rounded-2xl bg-black border border-brand-primary/30 shadow-glow">
         {contentType === 'youtube' ? (
           <div id="yt-player" className="w-full h-full" />
-        ) : (
+        ) : contentType === 'mp3' ? (
           <div className="w-full h-full grid place-items-center p-6">
             <audio
               ref={audioRef}
@@ -163,6 +193,17 @@ export function PartyPlayer({ code, contentType, contentUrl, isHost }: Props) {
               src={contentUrl}
               onPlay={() => isHost && broadcastState(true, audioRef.current?.currentTime || 0)}
               onPause={() => isHost && broadcastState(false, audioRef.current?.currentTime || 0)}
+            />
+          </div>
+        ) : (
+          <div className="w-full h-full grid place-items-center p-6">
+            <video
+              ref={videoRef}
+              controls={isHost}
+              className="w-full h-full object-cover"
+              src={contentUrl}
+              onPlay={() => isHost && broadcastState(true, videoRef.current?.currentTime || 0)}
+              onPause={() => isHost && broadcastState(false, videoRef.current?.currentTime || 0)}
             />
           </div>
         )}

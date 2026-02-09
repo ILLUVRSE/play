@@ -14,7 +14,7 @@ type Participant = { seatId: string; displayName: string; isHost: boolean };
 type Party = {
   code: string;
   title: string;
-  contentType: 'youtube' | 'mp3';
+  contentType: 'youtube' | 'mp3' | 'mp4';
   contentUrl: string;
   maxSeats: number;
   participants: Participant[];

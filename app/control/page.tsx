@@ -11,7 +11,7 @@ export default function ControlPage() {
         <div className="space-y-2">
           <p className="pill inline-block">Owner</p>
           <h1 className="text-3xl font-bold">Control</h1>
-          <p className="text-white/70">Configure MemeMachine defaults. Keys stay on this device.</p>
+  <p className="text-white/70">Owner settings. Keys stay on this device.</p>
         </div>
         <ControlPanel enabled={controlEnabled} />
       </main>

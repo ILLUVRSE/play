@@ -74,73 +74,7 @@ export function ControlPanel({ enabled }: { enabled: boolean }) {
         </ul>
       </section>
 
-      <section className="glass p-6 border-brand-primary/30 shadow-glow space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold">MemeMachine Defaults</h2>
-          <span className="pill text-xs">Local only</span>
-        </div>
-        <div className="grid md:grid-cols-2 gap-4">
-          <label className="space-y-1">
-            <span className="text-sm text-white/70">Default style</span>
-            <select
-              value={settings.defaultStyle}
-              onChange={(e) => setSettingsState({ ...settings, defaultStyle: e.target.value })}
-              className="w-full rounded-xl bg-black/40 border border-brand-primary/40 px-3 py-3"
-            >
-              {['clean', 'retro', 'vaporwave', 'film grain', 'minimalist'].map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="space-y-1">
-            <span className="text-sm text-white/70">Default aspect</span>
-            <select
-              value={settings.defaultAspect}
-              onChange={(e) => setSettingsState({ ...settings, defaultAspect: e.target.value as ControlSettings['defaultAspect'] })}
-              className="w-full rounded-xl bg-black/40 border border-brand-primary/40 px-3 py-3"
-            >
-              <option value="1:1">1:1</option>
-              <option value="4:5">4:5</option>
-              <option value="16:9">16:9</option>
-            </select>
-          </label>
-          <label className="space-y-1">
-            <span className="text-sm text-white/70">Default mode</span>
-            <select
-              value={settings.defaultMode}
-              onChange={(e) => setSettingsState({ ...settings, defaultMode: e.target.value as ControlSettings['defaultMode'] })}
-              className="w-full rounded-xl bg-black/40 border border-brand-primary/40 px-3 py-3"
-            >
-              <option value="image">Image</option>
-              <option value="gif" disabled>
-                GIF (coming soon)
-              </option>
-            </select>
-          </label>
-          <label className="space-y-1">
-            <span className="text-sm text-white/70">Output quality (preference)</span>
-            <select
-              value={settings.defaultQuality}
-              onChange={(e) => setSettingsState({ ...settings, defaultQuality: e.target.value as ControlSettings['defaultQuality'] })}
-              className="w-full rounded-xl bg-black/40 border border-brand-primary/40 px-3 py-3"
-            >
-              <option value="standard">Standard</option>
-              <option value="high">High</option>
-            </select>
-          </label>
-        </div>
-        <label className="flex items-center gap-3 text-sm text-white/80">
-          <input
-            type="checkbox"
-            checked={settings.allowHistory}
-            onChange={(e) => setSettingsState({ ...settings, allowHistory: e.target.checked })}
-            className="accent-brand-primary"
-          />
-          Allow public prompt history on this device
-        </label>
-      </section>
+      {/* MemeMachine defaults removed */}
 
       <section className="glass p-6 border-brand-primary/30 shadow-glow space-y-3">
         <div className="flex items-center justify-between">
