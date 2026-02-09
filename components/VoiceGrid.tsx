@@ -163,7 +163,7 @@ export function VoiceGrid({ code, seatMap, participants, participantId, micLocke
       'voice:join',
       { code, participantId },
       (response: { token?: string; error?: string }) => {
-        if (!response?.token) {
+        if (!response?.token || typeof response.token !== 'string') {
           setError(response?.error || 'Voice unavailable');
           return;
         }
