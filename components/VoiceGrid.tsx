@@ -24,31 +24,33 @@ type Props = {
 };
 
 function SeatTile({
-  label,
+  seatId,
+  displayName,
   trackRef,
-  isSpeaking,
   muted,
   isHost
 }: {
-  label: string;
-  trackRef: any;
-  isSpeaking: boolean;
-  muted: boolean;
-  isHost: boolean;
+  seatId: string;
+  displayName?: string;
+  trackRef?: any;
+  muted?: boolean;
+  isHost?: boolean;
 }) {
   return (
-    <div className={`relative rounded-2xl overflow-hidden border ${isSpeaking ? 'border-brand-glow' : 'border-white/10'} bg-black/40`}>
-      {trackRef ? (
-        <VideoTrack trackRef={trackRef} className="w-full h-full object-cover" />
-      ) : (
-        <div className="w-full h-full grid place-items-center text-white/40 text-sm">No video</div>
-      )}
-      <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between text-xs text-white/80">
-        <div className="flex items-center gap-2">
-          <span className="pill">{label}</span>
-          {isHost ? <span className="pill bg-brand-primary/30 border-brand-primary/40">Host</span> : null}
-        </div>
-        {muted ? <span className="pill bg-red-500/20 border-red-400/40">Muted</span> : null}
+    <div className={`rounded-lg overflow-hidden border ${isHost ? 'border-yellow-400/60' : 'border-white/10'} bg-black/40`}>
+      <div className="relative aspect-video">
+        {trackRef ? (
+          <VideoTrack trackRef={trackRef} className="absolute inset-0 w-full h-full object-cover" />
+        ) : (
+          <div className="absolute inset-0 grid place-items-center text-white/40 text-sm">Empty seat</div>
+        )}
+        <div className="absolute top-2 left-2 text-xs bg-black/70 px-2 py-0.5 rounded">{seatId}</div>
+        {displayName ? (
+          <div className="absolute bottom-2 left-2 right-2 text-xs text-white/80 flex items-center justify-between">
+            <span className="truncate">{displayName}</span>
+            {muted ? <span className="pill bg-red-500/20 border-red-400/40">Muted</span> : null}
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -89,16 +91,20 @@ function VoiceRoom({
     return map;
   }, [trackRefs]);
 
-  const gridStyle = useMemo(
-    () => ({
-      gridTemplateColumns: `repeat(${seatMap.cols}, minmax(0, 1fr))`,
-      gridTemplateRows: `repeat(${seatMap.rows}, minmax(0, 1fr))`
-    }),
-    [seatMap]
-  );
+  const orderedSeats = useMemo(() => {
+    const seats = [...seatMap.seats].sort((a, b) => a.localeCompare(b));
+    const hostSeatId = participants.find((p) => p.isHost)?.seatId;
+    if (hostSeatId && seats.includes(hostSeatId)) {
+      return [hostSeatId, ...seats.filter((seatId) => seatId !== hostSeatId)];
+    }
+    return seats;
+  }, [seatMap.seats, participants]);
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="text-sm font-semibold">People ({participants.length} / {seatMap.seats.length})</div>
+      </div>
       <div className="flex flex-wrap gap-2 items-center">
         <button
           className="button-ghost border-brand-primary/40 text-sm"
@@ -118,30 +124,23 @@ function VoiceRoom({
         {micLocked ? <span className="pill text-xs bg-red-500/20 border-red-400/40">Mic lock enabled</span> : null}
       </div>
 
-      <div className="grid gap-3" style={gridStyle}>
-        {seatMap.seats.map((seatId) => {
+      <div className="flex flex-col gap-3">
+        {orderedSeats.map((seatId) => {
           const participant = participantsBySeat.get(seatId);
-          if (!participant) {
-            return (
-              <div key={seatId} className="rounded-2xl border border-white/10 bg-black/20 text-xs text-white/40 grid place-items-center">
-                {seatId}
-              </div>
-            );
-          }
-          const trackRef = tracksByIdentity.get(participant.id);
+          const trackRef = participant ? tracksByIdentity.get(participant.id) : null;
           const lkParticipant = trackRef?.participant;
           const micMuted =
-            participant.muted ||
+            participant?.muted ||
             lkParticipant?.getTrackPublication?.(Track.Source.Microphone)?.isMuted ||
             false;
           return (
             <SeatTile
               key={seatId}
-              label={`${participant.displayName} • ${seatId}`}
+              seatId={seatId}
+              displayName={participant?.displayName}
               trackRef={trackRef}
-              isSpeaking={Boolean(lkParticipant?.isSpeaking)}
               muted={micMuted}
-              isHost={participant.isHost}
+              isHost={participant?.isHost}
             />
           );
         })}
@@ -185,7 +184,7 @@ export function VoiceGrid({ code, seatMap, participants, participantId, micLocke
   }
 
   return (
-    <LiveKitRoom token={token} serverUrl={livekitUrl} audio={false} video={false}>
+    <LiveKitRoom token={token} serverUrl={livekitUrl} audio={!micLocked} video={true}>
       <RoomAudioRenderer />
       <VoiceRoom seatMap={seatMap} participants={participants} participantId={participantId} micLocked={micLocked} />
     </LiveKitRoom>

@@ -50,30 +50,71 @@ export function PartyPlayer({ code, playlist, currentIndex, isHost }: Props) {
   useEffect(() => {
     socketRef.current = ensureSocket(socketRef);
 
-    const syncHandler = (payload: { playing: boolean; currentTime: number; currentIndex?: number }) => {
+    const syncHandler = (payload: { playing: boolean; currentTime: number; currentIndex?: number; updatedAt?: string }) => {
       if (isHost) return;
+
       setPlaying(payload.playing);
+
       if (typeof payload.currentIndex === 'number') {
         setActiveIndex(payload.currentIndex);
       }
 
+      // compute latency-compensated target time
+      let targetTime = Number(payload.currentTime || 0);
+      if (payload.updatedAt) {
+        const serverTs = Date.parse(payload.updatedAt);
+        if (!Number.isNaN(serverTs)) {
+          const latencyMs = Math.max(0, Date.now() - serverTs);
+          targetTime = targetTime + latencyMs / 1000;
+        }
+      }
+
+      const seekIfNeeded = (current: number, desired: number, setter?: (v: number) => void) => {
+        if (Math.abs(current - desired) > 0.5) {
+          if (typeof setter === 'function') setter(desired);
+        }
+      };
+
       if (contentType === 'mp3' && audioRef.current) {
-        audioRef.current.currentTime = payload.currentTime;
-        payload.playing ? audioRef.current.play().catch(() => {}) : audioRef.current.pause();
+        const audio = audioRef.current;
+        seekIfNeeded(audio.currentTime, targetTime, (t) => {
+          audio.currentTime = Math.max(0, t);
+        });
+        payload.playing ? audio.play().catch(() => {}) : audio.pause();
+        return;
       }
 
       if (contentType === 'mp4' && videoRef.current) {
-        try {
-          videoRef.current.currentTime = payload.currentTime;
-        } catch {
-          // ignore
+        const video = videoRef.current;
+        // if metadata not loaded yet, wait for it
+        if (isNaN(video.duration) || video.readyState < 2) {
+          const onLoaded = () => {
+            video.removeEventListener('loadedmetadata', onLoaded);
+            seekIfNeeded(video.currentTime, targetTime, (t) => {
+              video.currentTime = Math.max(0, t);
+            });
+            payload.playing ? video.play().catch(() => {}) : video.pause();
+          };
+          video.addEventListener('loadedmetadata', onLoaded);
+        } else {
+          seekIfNeeded(video.currentTime, targetTime, (t) => {
+            video.currentTime = Math.max(0, t);
+          });
+          payload.playing ? video.play().catch(() => {}) : video.pause();
         }
-        payload.playing ? videoRef.current.play().catch(() => {}) : videoRef.current.pause();
+        return;
       }
 
       if (contentType === 'youtube' && ytRef.current) {
-        ytRef.current.seekTo(payload.currentTime, true);
-        payload.playing ? ytRef.current.playVideo() : ytRef.current.pauseVideo();
+        // use server-latency compensated time for youtube seek
+        const seekTime = Math.max(0, targetTime);
+        try {
+          ytRef.current.seekTo(seekTime, true);
+          payload.playing ? ytRef.current.playVideo() : ytRef.current.pauseVideo();
+        } catch (e) {
+          // ignore temporary YT errors
+        }
+        return;
       }
     };
 

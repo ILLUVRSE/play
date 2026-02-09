@@ -224,8 +224,8 @@ export default function PartyRoomPage() {
 
         <PresenceBar maxSeats={party.maxSeats} participants={party.participants} seatId={seatId} />
 
-        <div className="grid lg:grid-cols-[1.5fr_1fr] gap-4 items-start">
-          <div className="space-y-4">
+        <div className="flex flex-col lg:flex-row gap-6 items-start">
+          <div className="flex-1 space-y-4">
             <PartyPlayer code={party.code} playlist={playlist} currentIndex={currentIndex} isHost={false} />
             <div className="glass p-4 border-brand-primary/30 text-sm text-white/80 space-y-2">
               <div className="font-semibold text-white">Guest powers</div>
@@ -234,7 +234,7 @@ export default function PartyRoomPage() {
             </div>
             <ReactionBar code={party.code} seatId={seatId} displayName={displayName} />
           </div>
-          <div className="h-full min-h-[480px]">
+          <div className="w-full lg:w-[320px] shrink-0">
             <VoiceGrid
               code={party.code}
               seatMap={party.seatMap}

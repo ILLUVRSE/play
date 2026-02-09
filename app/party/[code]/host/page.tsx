@@ -158,12 +158,40 @@ export default function HostPartyView() {
   }, [code, participantId]);
 
   const endParty = async () => {
-    await fetch(`/api/parties/${code}/end`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ participantId })
-    });
-    router.refresh();
+    try {
+      // fallback to localStorage if participantId isn't in state
+      const id =
+        participantId ||
+        (typeof window !== 'undefined' ? localStorage.getItem(`party-${code}-participant`) || '' : '');
+
+      if (!id) {
+        // useful feedback for host
+        window.alert('Host authorization missing - please re-open the host page.');
+        return;
+      }
+
+      const res = await fetch(`/api/parties/${code}/end`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ participantId: id })
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        console.error('Failed to end party', data);
+        window.alert(data?.error || 'Failed to end party');
+        return;
+      }
+
+      // notify the socket server (if connected) so guests update immediately
+      socketRef.current?.emit('party:ended', { code });
+
+      // redirect host to the home/dashboard
+      router.push('/');
+    } catch (err) {
+      console.error('endParty error', err);
+      window.alert('Unexpected error ending party');
+    }
   };
 
   const copyCode = async () => {
