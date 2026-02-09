@@ -46,14 +46,25 @@ export default function HostPage() {
       body: JSON.stringify({ ...form, playlist: normalized })
     });
     setLoading(false);
+    const readJson = async () => {
+      try {
+        return await res.json();
+      } catch {
+        return null;
+      }
+    };
     if (!res.ok) {
-      const data = await res.json();
+      const data = await readJson();
       const errorText =
-        typeof data.error === 'string' ? data.error : data.error?._errors?.[0] || 'Unable to create party';
+        typeof data?.error === 'string' ? data.error : data?.error?._errors?.[0] || 'Unable to create party';
       setError(errorText);
       return;
     }
-    const data = await res.json();
+    const data = await readJson();
+    if (!data?.code) {
+      setError('Unable to create party.');
+      return;
+    }
     localStorage.setItem(`party-${data.code}-host`, 'true');
     if (data.participantId) {
       localStorage.setItem(`party-${data.code}-participant`, data.participantId);
