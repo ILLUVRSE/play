@@ -7,6 +7,7 @@
     "build": "TSC_COMPILE_ON_ERROR=true next build",
     "start": "next start",
     "lint": "next lint",
+    "socket:dev": "node server/socket-server.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "prisma db seed"
