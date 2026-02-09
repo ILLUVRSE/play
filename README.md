@@ -46,6 +46,22 @@ npm run build
 npm start
 ```
 
+## Standalone Socket Server (required for production WebSockets)
+Vercel serverless routes do not keep WebSocket upgrades open, so run the Socket.IO server separately.
+
+1. Deploy `server/socket-server.js` on Render/Fly/Railway.
+2. Set env vars on the socket server:
+   - `DATABASE_URL`
+   - `NEXT_PUBLIC_BASE_URL` (e.g., `https://www.illuvrse.com`)
+   - `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`
+   - `SOCKET_PORT` (optional; defaults to 3001)
+3. Set in the Next.js app:
+   - `NEXT_PUBLIC_SOCKET_URL` to the socket server URL (e.g., `https://illuvrse-socket.onrender.com`)
+4. Start locally:
+   ```bash
+   npm run socket:dev
+   ```
+
 ## Routes
 - `/` — landing with Host/Join CTA + live public parties
 - `/host` — create party (title, playlist, visibility, seats, theme) → generates code and host seat
