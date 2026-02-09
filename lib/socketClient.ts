@@ -6,7 +6,9 @@ let warmPromise: Promise<void> | null = null;
 
 async function warmSocketServer() {
   if (!warmPromise) {
-    warmPromise = fetch('/api/socket').then(() => undefined).catch(() => undefined);
+    const baseUrl = process.env.NEXT_PUBLIC_SOCKET_URL || '';
+    const url = baseUrl ? `${baseUrl}/api/socket` : '/api/socket';
+    warmPromise = fetch(url).then(() => undefined).catch(() => undefined);
   }
   await warmPromise;
 }
@@ -16,7 +18,7 @@ export function getSocket(): Socket {
     void warmSocketServer();
     socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || '', {
       path: '/api/socket',
-      transports: ['websocket']
+      transports: ['websocket', 'polling']
     });
   }
   return socket;
