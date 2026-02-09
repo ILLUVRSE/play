@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { Server as HTTPServer } from 'http';
 import { Server as IOServer, Socket } from 'socket.io';
+import { AccessToken, RoomServiceClient } from 'livekit-server-sdk';
 import { getPrisma } from '@/lib/prisma';
 import { partyCodeSchema } from '@/lib/validation';
 
@@ -11,6 +12,7 @@ type NextApiResponseServerIO = NextApiResponse & {
 };
 
 const connections = new Map<string, { participantId?: string; partyId?: string }>();
+const participantSockets = new Map<string, string>();
 
 export default function handler(_req: NextApiRequest, res: NextApiResponseServerIO) {
   if (res.socket.server.io) {
@@ -18,6 +20,13 @@ export default function handler(_req: NextApiRequest, res: NextApiResponseServer
   }
 
   const prisma = getPrisma();
+  const livekitUrl = process.env.LIVEKIT_URL || process.env.NEXT_PUBLIC_LIVEKIT_URL || '';
+  const livekitApiKey = process.env.LIVEKIT_API_KEY || '';
+  const livekitApiSecret = process.env.LIVEKIT_API_SECRET || '';
+  const roomService =
+    livekitUrl && livekitApiKey && livekitApiSecret
+      ? new RoomServiceClient(livekitUrl, livekitApiKey, livekitApiSecret)
+      : null;
 
   const io = new IOServer(res.socket.server, {
     path: '/api/socket',
@@ -47,7 +56,20 @@ export default function handler(_req: NextApiRequest, res: NextApiResponseServer
       socket.join(code.data);
       connections.set(socket.id, { participantId, partyId: party.id });
       if (participantId) {
-        io.to(code.data).emit('presence:update', { participantId });
+        participantSockets.set(participantId, socket.id);
+        const participant = await prisma.participant.findFirst({
+          where: { id: participantId, partyId: party.id, leftAt: null }
+        });
+        if (participant) {
+          io.to(code.data).emit('presence:update', {
+            participantId,
+            seatId: participant.seatId,
+            displayName: participant.displayName,
+            isHost: participant.isHost,
+            muted: participant.muted,
+            left: false
+          });
+        }
       }
     });
 
@@ -64,6 +86,7 @@ export default function handler(_req: NextApiRequest, res: NextApiResponseServer
           where: { id: connection.participantId, partyId: party.id },
           data: { leftAt: new Date() }
         });
+        participantSockets.delete(connection.participantId);
         io.to(code.data).emit('presence:update', { participantId: connection.participantId, left: true });
       }
       connections.set(socket.id, { partyId: connection.partyId });
@@ -79,7 +102,13 @@ export default function handler(_req: NextApiRequest, res: NextApiResponseServer
         where: { id: payload.participantId, partyId: party.id, seatId: payload.seatId, leftAt: null }
       });
       if (!participant) return;
-      io.to(code.data).emit('seat:update', { seatId: participant.seatId, displayName: participant.displayName });
+      io.to(code.data).emit('seat:update', {
+        participantId: participant.id,
+        seatId: participant.seatId,
+        displayName: participant.displayName,
+        isHost: participant.isHost,
+        muted: participant.muted
+      });
     });
 
     socket.on('chat:message', async (payload: { code?: string; text?: string; participantId?: string; seatId?: string; displayName?: string }) => {
@@ -135,7 +164,7 @@ export default function handler(_req: NextApiRequest, res: NextApiResponseServer
       });
     });
 
-    socket.on('playback:state', async (payload: { code?: string; playing?: boolean; currentTime?: number }) => {
+    socket.on('playback:state', async (payload: { code?: string; playing?: boolean; currentTime?: number; currentIndex?: number }) => {
       const code = partyCodeSchema.safeParse(payload?.code);
       if (!code.success) return;
       const connection = connections.get(socket.id);
@@ -148,12 +177,17 @@ export default function handler(_req: NextApiRequest, res: NextApiResponseServer
       if (!host) return;
       const playing = Boolean(payload?.playing);
       const currentTime = Number(payload?.currentTime || 0);
+      const currentIndex = Number(payload?.currentIndex ?? party.currentIndex);
       await prisma.playbackState.upsert({
         where: { partyId: party.id },
         update: { playing, currentTime },
         create: { partyId: party.id, playing, currentTime }
       });
-      io.to(code.data).emit('playback:state', { playing, currentTime, updatedAt: new Date().toISOString() });
+      await prisma.party.update({
+        where: { id: party.id },
+        data: { currentIndex }
+      });
+      io.to(code.data).emit('playback:state', { playing, currentTime, currentIndex, updatedAt: new Date().toISOString() });
     });
 
     socket.on('playback:requestSync', async (payload: { code?: string }) => {
@@ -170,9 +204,177 @@ export default function handler(_req: NextApiRequest, res: NextApiResponseServer
         socket.emit('playback:state', {
           playing: party.playback.playing,
           currentTime: party.playback.currentTime,
+          currentIndex: party.currentIndex,
           updatedAt: party.playback.updatedAt
         });
       }
+    });
+
+    socket.on('voice:join', async (payload: { code?: string; participantId?: string }, callback?: (data: { token?: string; roomName?: string; micLocked?: boolean; seatLocked?: boolean; error?: string }) => void) => {
+      const code = partyCodeSchema.safeParse(payload?.code);
+      if (!code.success) {
+        callback?.({ error: 'Invalid code' });
+        return;
+      }
+      if (!payload?.participantId) {
+        callback?.({ error: 'Missing participant' });
+        return;
+      }
+      const party = await prisma.party.findUnique({ where: { code: code.data } });
+      if (!party || party.status === 'ended') {
+        callback?.({ error: 'Party not available' });
+        return;
+      }
+      const participant = await prisma.participant.findFirst({
+        where: { id: payload.participantId, partyId: party.id, leftAt: null }
+      });
+      if (!participant) {
+        callback?.({ error: 'Participant not found' });
+        return;
+      }
+      if (!livekitUrl || !livekitApiKey || !livekitApiSecret) {
+        callback?.({ error: 'LiveKit not configured' });
+        return;
+      }
+      const token = new AccessToken(livekitApiKey, livekitApiSecret, {
+        identity: participant.id,
+        name: participant.displayName,
+        metadata: JSON.stringify({
+          seatId: participant.seatId,
+          displayName: participant.displayName,
+          isHost: participant.isHost
+        })
+      });
+      token.addGrant({ roomJoin: true, room: party.code, canPublish: true, canSubscribe: true });
+      callback?.({
+        token: token.toJwt(),
+        roomName: party.code,
+        micLocked: party.micLocked,
+        seatLocked: party.seatLocked
+      });
+    });
+
+    socket.on('host:micLock', async (payload: { code?: string; locked?: boolean }) => {
+      const code = partyCodeSchema.safeParse(payload?.code);
+      if (!code.success) return;
+      const connection = connections.get(socket.id);
+      if (!connection?.participantId || !connection.partyId) return;
+      const host = await prisma.participant.findFirst({
+        where: { id: connection.participantId, partyId: connection.partyId, isHost: true, leftAt: null }
+      });
+      if (!host) return;
+      const locked = Boolean(payload?.locked);
+      const party = await prisma.party.update({
+        where: { id: connection.partyId },
+        data: { micLocked: locked }
+      });
+      io.to(party.code).emit('voice:micLock', { locked });
+    });
+
+    socket.on('host:seatLock', async (payload: { code?: string; locked?: boolean }) => {
+      const code = partyCodeSchema.safeParse(payload?.code);
+      if (!code.success) return;
+      const connection = connections.get(socket.id);
+      if (!connection?.participantId || !connection.partyId) return;
+      const host = await prisma.participant.findFirst({
+        where: { id: connection.participantId, partyId: connection.partyId, isHost: true, leftAt: null }
+      });
+      if (!host) return;
+      const locked = Boolean(payload?.locked);
+      const party = await prisma.party.update({
+        where: { id: connection.partyId },
+        data: { seatLocked: locked }
+      });
+      io.to(party.code).emit('seat:lock', { locked });
+    });
+
+    socket.on('host:mute', async (payload: { code?: string; targetParticipantId?: string }) => {
+      const code = partyCodeSchema.safeParse(payload?.code);
+      if (!code.success) return;
+      const connection = connections.get(socket.id);
+      if (!connection?.participantId || !connection.partyId) return;
+      const host = await prisma.participant.findFirst({
+        where: { id: connection.participantId, partyId: connection.partyId, isHost: true, leftAt: null }
+      });
+      if (!host) return;
+      if (!payload?.targetParticipantId) return;
+      const participant = await prisma.participant.updateMany({
+        where: { id: payload.targetParticipantId, partyId: connection.partyId, leftAt: null, isHost: false },
+        data: { muted: true }
+      });
+      if (!participant.count) return;
+      io.to(code.data).emit('voice:mute', { participantId: payload.targetParticipantId, muted: true });
+    });
+
+    socket.on('host:unmute', async (payload: { code?: string; targetParticipantId?: string }) => {
+      const code = partyCodeSchema.safeParse(payload?.code);
+      if (!code.success) return;
+      const connection = connections.get(socket.id);
+      if (!connection?.participantId || !connection.partyId) return;
+      const host = await prisma.participant.findFirst({
+        where: { id: connection.participantId, partyId: connection.partyId, isHost: true, leftAt: null }
+      });
+      if (!host) return;
+      if (!payload?.targetParticipantId) return;
+      const participant = await prisma.participant.updateMany({
+        where: { id: payload.targetParticipantId, partyId: connection.partyId, leftAt: null, isHost: false },
+        data: { muted: false }
+      });
+      if (!participant.count) return;
+      io.to(code.data).emit('voice:mute', { participantId: payload.targetParticipantId, muted: false });
+    });
+
+    socket.on('host:kick', async (payload: { code?: string; targetParticipantId?: string }) => {
+      const code = partyCodeSchema.safeParse(payload?.code);
+      if (!code.success) return;
+      const connection = connections.get(socket.id);
+      if (!connection?.participantId || !connection.partyId) return;
+      const host = await prisma.participant.findFirst({
+        where: { id: connection.participantId, partyId: connection.partyId, isHost: true, leftAt: null }
+      });
+      if (!host) return;
+      if (!payload?.targetParticipantId) return;
+      await prisma.participant.updateMany({
+        where: { id: payload.targetParticipantId, partyId: connection.partyId, leftAt: null },
+        data: { leftAt: new Date() }
+      });
+      const targetSocketId = participantSockets.get(payload.targetParticipantId);
+      if (targetSocketId) {
+        io.to(targetSocketId).emit('party:kick', { reason: 'kicked' });
+      }
+      if (roomService) {
+        try {
+          await roomService.removeParticipant(code.data, payload.targetParticipantId);
+        } catch {
+          // ignore
+        }
+      }
+      io.to(code.data).emit('presence:update', { participantId: payload.targetParticipantId, left: true });
+    });
+
+    socket.on('playlist:update', async (payload: { code?: string; orderedIds?: string[] }) => {
+      const code = partyCodeSchema.safeParse(payload?.code);
+      if (!code.success) return;
+      const connection = connections.get(socket.id);
+      if (!connection?.participantId || !connection.partyId) return;
+      const host = await prisma.participant.findFirst({
+        where: { id: connection.participantId, partyId: connection.partyId, isHost: true, leftAt: null }
+      });
+      if (!host) return;
+      const orderedIds = Array.isArray(payload?.orderedIds) ? payload.orderedIds : [];
+      if (!orderedIds.length) return;
+      const updates = orderedIds.map((id, index) =>
+        prisma.playlistItem.updateMany({
+          where: { id, partyId: connection.partyId },
+          data: { orderIndex: index }
+        })
+      );
+      await prisma.$transaction(updates);
+      const playlist = await prisma.playlistItem.findMany({
+        where: { partyId: connection.partyId },
+        orderBy: { orderIndex: 'asc' }
+      });
+      io.to(code.data).emit('playlist:update', { playlist });
     });
 
     socket.on('disconnect', async () => {
@@ -182,6 +384,7 @@ export default function handler(_req: NextApiRequest, res: NextApiResponseServer
           where: { id: connection.participantId },
           data: { leftAt: new Date() }
         });
+        participantSockets.delete(connection.participantId);
       }
       connections.delete(socket.id);
       lastMessageAt.delete(socket.id);

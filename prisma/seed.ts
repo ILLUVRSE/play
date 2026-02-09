@@ -52,7 +52,17 @@ async function main() {
         participants: {
           create: { displayName: 'Host', seatId: seat, isHost: true }
         },
-        playback: { create: { playing: false, currentTime: 0 } }
+        playback: { create: { playing: false, currentTime: 0 } },
+        playlist: {
+          create: [
+            {
+              orderIndex: 0,
+              contentType: seed.contentType,
+              contentUrl: seed.contentUrl,
+              title: seed.title
+            }
+          ]
+        }
       }
     });
   }

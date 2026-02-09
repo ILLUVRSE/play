@@ -5,13 +5,13 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { Header } from '@/components/Header';
 import { PartyPlayer } from '@/components/PartyPlayer';
-import { ChatPanel } from '@/components/ChatPanel';
 import { ReactionBar } from '@/components/ReactionBar';
 import { PresenceBar } from '@/components/PresenceBar';
+import { VoiceGrid } from '@/components/VoiceGrid';
 import { ensureSocket } from '@/lib/socketClient';
 import type { Socket } from 'socket.io-client';
 
-type Participant = { seatId: string; displayName: string; isHost: boolean };
+type Participant = { id: string; seatId: string; displayName: string; isHost: boolean; muted: boolean };
 type Party = {
   code: string;
   title: string;
@@ -20,6 +20,10 @@ type Party = {
   maxSeats: number;
   participants: Participant[];
   status: string;
+  seatMap: { rows: number; cols: number; seats: string[] };
+  playlist: { id: string; orderIndex: number; contentType: 'youtube' | 'mp3' | 'mp4'; contentUrl: string; title?: string | null }[];
+  currentIndex: number;
+  micLocked: boolean;
 };
 
 export default function PartyRoomPage() {
@@ -32,6 +36,9 @@ export default function PartyRoomPage() {
   const [displayName, setDisplayName] = useState('');
   const participantId = typeof window !== 'undefined' ? localStorage.getItem(`party-${code}-participant`) || '' : '';
   const socketRef = useRef<Socket | null>(null);
+  const [micLocked, setMicLocked] = useState(false);
+  const [playlist, setPlaylist] = useState<Party['playlist']>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {
     const name = localStorage.getItem(`party-${code}-name`) || '';
@@ -51,31 +58,118 @@ export default function PartyRoomPage() {
         return res.json();
       })
       .then((data) => {
-        if (data) setParty(data);
+        if (data) {
+          setParty(data);
+          setMicLocked(Boolean(data.micLocked));
+          const basePlaylist = Array.isArray(data.playlist) ? data.playlist : [];
+          setPlaylist(
+            basePlaylist.length
+              ? basePlaylist
+              : [
+                  {
+                    id: 'fallback',
+                    orderIndex: 0,
+                    contentType: data.contentType,
+                    contentUrl: data.contentUrl,
+                    title: data.title
+                  }
+                ]
+          );
+          setCurrentIndex(Number(data.currentIndex || 0));
+        }
       })
       .catch(() => setError('Party not found.'));
   }, [code, router]);
 
   useEffect(() => {
     socketRef.current = ensureSocket(socketRef);
-    const seatHandler = (payload: { seatId: string; displayName: string }) => {
+    const seatHandler = (payload: { participantId: string; seatId: string; displayName: string; isHost: boolean; muted: boolean }) => {
       setParty((prev) =>
         prev
           ? {
               ...prev,
-              participants: [...prev.participants, { seatId: payload.seatId, displayName: payload.displayName, isHost: false }]
+              participants: [
+                ...prev.participants.filter((p) => p.id !== payload.participantId),
+                {
+                  id: payload.participantId,
+                  seatId: payload.seatId,
+                  displayName: payload.displayName,
+                  isHost: payload.isHost,
+                  muted: payload.muted
+                }
+              ]
             }
           : prev
       );
     };
+    const presenceHandler = (payload: { participantId?: string; seatId?: string; displayName?: string; isHost?: boolean; muted?: boolean; left?: boolean }) => {
+      if (!payload?.participantId) return;
+      setParty((prev) => {
+        if (!prev) return prev;
+        if (payload.left) {
+          return { ...prev, participants: prev.participants.filter((p) => p.id !== payload.participantId) };
+        }
+        if (!payload.seatId || !payload.displayName) return prev;
+        const next = prev.participants.filter((p) => p.id !== payload.participantId);
+        next.push({
+          id: payload.participantId,
+          seatId: payload.seatId,
+          displayName: payload.displayName,
+          isHost: Boolean(payload.isHost),
+          muted: Boolean(payload.muted)
+        });
+        return { ...prev, participants: next };
+      });
+    };
+    const muteHandler = (payload: { participantId?: string; muted?: boolean }) => {
+      if (!payload?.participantId) return;
+      setParty((prev) =>
+        prev
+          ? {
+              ...prev,
+              participants: prev.participants.map((p) =>
+                p.id === payload.participantId ? { ...p, muted: Boolean(payload.muted) } : p
+              )
+            }
+          : prev
+      );
+    };
+    const micLockHandler = (payload: { locked?: boolean }) => {
+      setMicLocked(Boolean(payload?.locked));
+    };
+    const kickHandler = () => {
+      router.replace(`/party/${code}/seat`);
+    };
+    const playlistHandler = (payload: { playlist?: Party['playlist'] }) => {
+      if (Array.isArray(payload?.playlist)) {
+        setPlaylist(payload.playlist);
+      }
+    };
+    const playbackHandler = (payload: { currentIndex?: number }) => {
+      if (typeof payload?.currentIndex === 'number') {
+        setCurrentIndex(payload.currentIndex);
+      }
+    };
     socketRef.current.on('seat:update', seatHandler);
+    socketRef.current.on('presence:update', presenceHandler);
+    socketRef.current.on('voice:mute', muteHandler);
+    socketRef.current.on('voice:micLock', micLockHandler);
+    socketRef.current.on('playlist:update', playlistHandler);
+    socketRef.current.on('playback:state', playbackHandler);
+    socketRef.current.on('party:kick', kickHandler);
     socketRef.current.emit('party:join', { code, participantId });
     return () => {
       if (!socketRef.current) return;
       socketRef.current.off('seat:update', seatHandler);
+      socketRef.current.off('presence:update', presenceHandler);
+      socketRef.current.off('voice:mute', muteHandler);
+      socketRef.current.off('voice:micLock', micLockHandler);
+      socketRef.current.off('playlist:update', playlistHandler);
+      socketRef.current.off('playback:state', playbackHandler);
+      socketRef.current.off('party:kick', kickHandler);
       socketRef.current.emit('party:leave', { code, participantId });
     };
-  }, [code, participantId]);
+  }, [code, participantId, router]);
 
   if (error) {
     return (
@@ -123,7 +217,7 @@ export default function PartyRoomPage() {
           </div>
           <div className="glass px-4 py-3 border-brand-primary/30 text-sm text-white/80 max-w-md">
             <div className="font-semibold text-white">How this works</div>
-            <p className="text-white/60 text-sm">Host controls playback. Guests follow along, chat, and react.</p>
+            <p className="text-white/60 text-sm">Host controls playback. Guests follow along, talk, and react.</p>
           </div>
         </div>
 
@@ -131,26 +225,21 @@ export default function PartyRoomPage() {
 
         <div className="grid lg:grid-cols-[1.5fr_1fr] gap-4 items-start">
           <div className="space-y-4">
-            <PartyPlayer
-              code={party.code}
-              contentType={party.contentType}
-              contentUrl={party.contentUrl}
-              isHost={false}
-            />
+            <PartyPlayer code={party.code} playlist={playlist} currentIndex={currentIndex} isHost={false} />
             <div className="glass p-4 border-brand-primary/30 text-sm text-white/80 space-y-2">
               <div className="font-semibold text-white">Guest powers</div>
-              <div className="text-white/60 text-sm">Chat and reactions. Playback is synced to the host.</div>
+              <div className="text-white/60 text-sm">Voice, reactions, and synced playback.</div>
               <div className="text-white/60 text-sm">No play/pause controls.</div>
             </div>
             <ReactionBar code={party.code} seatId={seatId} displayName={displayName} />
           </div>
           <div className="h-full min-h-[480px]">
-            <ChatPanel
+            <VoiceGrid
               code={party.code}
-              seatId={seatId}
-              displayName={displayName}
+              seatMap={party.seatMap}
+              participants={party.participants}
               participantId={participantId}
-              isHost={false}
+              micLocked={micLocked}
             />
           </div>
         </div>

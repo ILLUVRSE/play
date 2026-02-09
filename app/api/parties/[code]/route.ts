@@ -20,9 +20,12 @@ export async function GET(_req: Request, { params }: Params) {
     include: {
       participants: {
         where: { leftAt: null },
-        select: { id: true, seatId: true, displayName: true, isHost: true }
+        select: { id: true, seatId: true, displayName: true, isHost: true, muted: true }
       },
-      playback: true
+      playback: true,
+      playlist: {
+        orderBy: { orderIndex: 'asc' }
+      }
     }
   });
 
@@ -41,8 +44,12 @@ export async function GET(_req: Request, { params }: Params) {
     visibility: party.visibility,
     maxSeats: party.maxSeats,
     status: party.status,
+    currentIndex: party.currentIndex,
+    micLocked: party.micLocked,
+    seatLocked: party.seatLocked,
     seatMap,
     participants: party.participants,
-    playback: party.playback
+    playback: party.playback,
+    playlist: party.playlist
   });
 }

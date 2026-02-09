@@ -31,7 +31,7 @@ export default async function LandingPage() {
             <div className="flex gap-2 text-xs text-white/60 flex-wrap uppercase tracking-wide">
               <span className="pill">Seats = identity</span>
               <span className="pill">Host controls</span>
-              <span className="pill">Chat & reactions</span>
+              <span className="pill">Voice & reactions</span>
             </div>
           </div>
           <div className="glass p-6 border-white/10 space-y-4 orbital">
@@ -40,7 +40,7 @@ export default async function LandingPage() {
               <Step title="Host" desc="Create room" />
               <Step title="Share" desc="Drop the code" />
               <Step title="Seat" desc="Pick your row" />
-              <Step title="Party" desc="Sync + chat" />
+              <Step title="Party" desc="Sync + talk" />
             </div>
           </div>
         </section>
@@ -48,7 +48,7 @@ export default async function LandingPage() {
         <section className="space-y-3">
           <div>
             <h2 className="text-2xl font-semibold">Party Tools</h2>
-            <p className="text-white/60 text-sm">Host, seat, sync playback, chat and react. That’s the core experience.</p>
+            <p className="text-white/60 text-sm">Host, seat, sync playback, talk and react. That’s the core experience.</p>
           </div>
         </section>
       </main>

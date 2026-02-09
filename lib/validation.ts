@@ -18,7 +18,7 @@ const youtubeRegex =
 
 export const hostSchema = z.object({
   title: z.string().trim().min(2).max(120),
-  contentUrl: z.string().trim(),
+  contentUrl: z.string().trim().optional(),
   visibility: z.enum(['private', 'public']).default('private'),
   maxSeats: z.number().int().min(12).max(48),
   theme: z.string().trim().max(40).optional()

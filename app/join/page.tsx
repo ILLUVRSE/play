@@ -68,7 +68,7 @@ export default function JoinPage() {
           {error && <p className="text-red-300 text-sm">{error}</p>}
           <div className="flex gap-3 items-center">
             <button className="button-primary shadow-gold" type="submit">Pick your seat</button>
-            <p className="text-white/60 text-sm">Row + Seat label follows you into chat.</p>
+            <p className="text-white/60 text-sm">Row + Seat label follows you into voice and video.</p>
           </div>
         </form>
       </main>

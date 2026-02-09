@@ -3,7 +3,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'ILLUVRSE — Theater Party Venue',
-  description: 'Host or join a code-based theater party with seats, chat, reactions, and synced playback.',
+  description: 'Host or join a code-based theater party with seats, voice, reactions, and synced playback.',
   icons: {
     icon: '/favicon.ico'
   }
