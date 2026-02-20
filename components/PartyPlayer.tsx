@@ -4,12 +4,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { ensureSocket } from '@/lib/socketClient';
 import type { Socket } from 'socket.io-client';
+import { BoatRacer } from './BoatRacer';
 
 type Props = {
+  partyId?: string;
   code: string;
-  playlist: { contentType: 'youtube' | 'mp3' | 'mp4'; contentUrl: string; title?: string | null }[];
+  playlist: { contentType: 'youtube' | 'mp3' | 'mp4' | 'game'; contentUrl: string; title?: string | null }[];
   currentIndex: number;
   isHost: boolean;
+  participantId?: string;
 };
 
 declare global {
@@ -24,7 +27,7 @@ function extractYouTubeId(url: string): string | null {
   return match ? match[1] : null;
 }
 
-export function PartyPlayer({ code, playlist, currentIndex, isHost }: Props) {
+export function PartyPlayer({ partyId, code, playlist, currentIndex, isHost, participantId }: Props) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const ytRef = useRef<any>(null);
@@ -297,6 +300,12 @@ export function PartyPlayer({ code, playlist, currentIndex, isHost }: Props) {
               onEnded={() => isHost && hostNextTrack()}
             />
           </div>
+        ) : contentType === 'game' ? (
+          <BoatRacer
+            partyId={partyId || code}
+            isHost={isHost}
+            participantId={participantId || 'unknown'}
+          />
         ) : (
           <div className="w-full h-full grid place-items-center p-6">
             <video

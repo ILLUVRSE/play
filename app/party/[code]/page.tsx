@@ -13,15 +13,16 @@ import type { Socket } from 'socket.io-client';
 
 type Participant = { id: string; seatId: string; displayName: string; isHost: boolean; muted: boolean };
 type Party = {
+  id: string;
   code: string;
   title: string;
-  contentType: 'youtube' | 'mp3' | 'mp4';
+  contentType: 'youtube' | 'mp3' | 'mp4' | 'game';
   contentUrl: string;
   maxSeats: number;
   participants: Participant[];
   status: string;
   seatMap: { rows: number; cols: number; seats: string[] };
-  playlist: { id: string; orderIndex: number; contentType: 'youtube' | 'mp3' | 'mp4'; contentUrl: string; title?: string | null }[];
+  playlist: { id: string; orderIndex: number; contentType: 'youtube' | 'mp3' | 'mp4' | 'game'; contentUrl: string; title?: string | null }[];
   currentIndex: number;
   micLocked: boolean;
 };
@@ -39,6 +40,9 @@ export default function PartyRoomPage() {
   const [micLocked, setMicLocked] = useState(false);
   const [playlist, setPlaylist] = useState<Party['playlist']>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+
+  const me = party?.participants.find((p) => p.id === participantId);
+  const isHost = me?.isHost || false;
 
   useEffect(() => {
     const name = localStorage.getItem(`party-${code}-name`) || '';
@@ -226,7 +230,14 @@ export default function PartyRoomPage() {
 
         <div className="flex flex-col lg:flex-row gap-6 items-start">
           <div className="flex-1 space-y-4">
-            <PartyPlayer code={party.code} playlist={playlist} currentIndex={currentIndex} isHost={false} />
+            <PartyPlayer
+              partyId={party.id}
+              code={party.code}
+              playlist={playlist as any}
+              currentIndex={currentIndex}
+              isHost={isHost}
+              participantId={participantId}
+            />
             <div className="glass p-4 border-brand-primary/30 text-sm text-white/80 space-y-2">
               <div className="font-semibold text-white">Guest powers</div>
               <div className="text-white/60 text-sm">Voice, reactions, and synced playback.</div>
