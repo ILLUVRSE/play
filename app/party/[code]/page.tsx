@@ -150,6 +150,11 @@ export default function PartyRoomPage() {
         setCurrentIndex(payload.currentIndex);
       }
     };
+    const gameLaunchHandler = (payload: { game: string }) => {
+      if (payload.game === 'spacelight') {
+        router.push(`/games/spacelight/play?code=${code}&name=${encodeURIComponent(displayName)}&mode=coop`);
+      }
+    };
     socketRef.current.on('seat:update', seatHandler);
     socketRef.current.on('presence:update', presenceHandler);
     socketRef.current.on('voice:mute', muteHandler);
@@ -157,6 +162,7 @@ export default function PartyRoomPage() {
     socketRef.current.on('playlist:update', playlistHandler);
     socketRef.current.on('playback:state', playbackHandler);
     socketRef.current.on('party:kick', kickHandler);
+    socketRef.current.on('party:gameLaunch', gameLaunchHandler);
     socketRef.current.emit('party:join', { code, participantId });
     return () => {
       if (!socketRef.current) return;
@@ -167,6 +173,7 @@ export default function PartyRoomPage() {
       socketRef.current.off('playlist:update', playlistHandler);
       socketRef.current.off('playback:state', playbackHandler);
       socketRef.current.off('party:kick', kickHandler);
+      socketRef.current.off('party:gameLaunch', gameLaunchHandler);
       socketRef.current.emit('party:leave', { code, participantId });
     };
   }, [code, participantId, router]);

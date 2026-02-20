@@ -52,3 +52,8 @@ a {
     radial-gradient(circle at 50% 50%, rgba(73,178,162,0.18) 0%, transparent 40%),
     repeating-radial-gradient(circle at 50% 50%, rgba(226,180,67,0.12), rgba(226,180,67,0.12) 1px, transparent 2px, transparent 6px);
 }
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
