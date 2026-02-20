@@ -136,6 +136,11 @@ export default function HostPartyView() {
         setCurrentIndex(payload.currentIndex);
       }
     };
+    const gameLaunchHandler = (payload: { game: string }) => {
+      if (payload.game === 'spacelight') {
+          router.push(`/games/spacelight/play?code=${code}&name=${encodeURIComponent(displayName)}&mode=coop`);
+      }
+    };
     socketRef.current.on('seat:update', seatHandler);
     socketRef.current.on('presence:update', presenceHandler);
     socketRef.current.on('voice:mute', muteHandler);
@@ -143,6 +148,7 @@ export default function HostPartyView() {
     socketRef.current.on('seat:lock', seatLockHandler);
     socketRef.current.on('playlist:update', playlistHandler);
     socketRef.current.on('playback:state', playbackHandler);
+    socketRef.current.on('party:gameLaunch', gameLaunchHandler);
     socketRef.current.emit('party:join', { code, participantId });
     return () => {
       if (!socketRef.current) return;
@@ -153,6 +159,7 @@ export default function HostPartyView() {
       socketRef.current.off('seat:lock', seatLockHandler);
       socketRef.current.off('playlist:update', playlistHandler);
       socketRef.current.off('playback:state', playbackHandler);
+      socketRef.current.off('party:gameLaunch', gameLaunchHandler);
       socketRef.current.emit('party:leave', { code, participantId });
     };
   }, [code, participantId]);
@@ -234,6 +241,10 @@ export default function HostPartyView() {
     socketRef.current?.emit('host:kick', { code, targetParticipantId: targetId });
   };
 
+  const launchSpacelight = () => {
+    socketRef.current?.emit('host:launchGame', { code });
+  };
+
   if (!party) {
     return (
       <div>
@@ -311,10 +322,19 @@ export default function HostPartyView() {
                 ))}
               </div>
             </section>
-            <div className="glass p-4 border-brand-primary/30 text-sm text-white/80 space-y-2">
+            <div className="glass p-4 border-brand-primary/30 text-sm text-white/80 space-y-4">
               <div className="font-semibold text-white">Host powers</div>
               <div className="text-white/60 text-sm">Play/Pause, force sync, and end the party.</div>
-              <div className="text-white/60 text-sm">Guests cannot control playback.</div>
+
+              <div className="pt-2">
+                  <button
+                    onClick={launchSpacelight}
+                    className="w-full bg-gradient-to-r from-cyan-600 to-purple-600 hover:from-cyan-500 hover:to-purple-500 py-3 rounded-xl font-bold text-white shadow-[0_0_15px_rgba(6,182,212,0.4)] transition-all"
+                  >
+                    🚀 LAUNCH SPACELIGHT CHRONICLES
+                  </button>
+                  <p className="text-[10px] text-white/40 mt-2 text-center uppercase tracking-widest">Redirects all guests to co-op mission</p>
+              </div>
             </div>
             <ReactionBar code={party.code} seatId={seatId} displayName={displayName} />
           </div>

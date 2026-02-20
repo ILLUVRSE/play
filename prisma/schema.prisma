@@ -28,6 +28,25 @@ model Party {
   playlist   PlaylistItem[]
 }
 
+model Leaderboard {
+  id           String   @id @default(uuid())
+  displayName  String
+  score        Int
+  wavesCleared Int
+  duration     Int      // in seconds
+  mode         String   // "solo" or "coop"
+  partyId      String?
+  createdAt    DateTime @default(now())
+}
+
+model UserUnlock {
+  id           String   @id @default(uuid())
+  displayName  String   @unique
+  unlockedSkins String[]
+  totalScore    Int      @default(0)
+  maxWave       Int      @default(0)
+}
+
 model Participant {
   id           String   @id @default(uuid())
   party        Party    @relation(fields: [partyId], references: [id])

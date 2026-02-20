@@ -2,11 +2,13 @@ const http = require('http');
 const { Server } = require('socket.io');
 const { PrismaClient } = require('@prisma/client');
 const { AccessToken, RoomServiceClient } = require('livekit-server-sdk');
+const SpacelightGame = require('./game/SpacelightGame');
 
 const prisma = new PrismaClient();
 const connections = new Map();
 const participantSockets = new Map();
 const lastMessageAt = new Map();
+const games = new Map(); // gameCode -> SpacelightGame
 
 const livekitUrl = process.env.LIVEKIT_URL || process.env.NEXT_PUBLIC_LIVEKIT_URL || '';
 const livekitApiKey = process.env.LIVEKIT_API_KEY || '';
@@ -39,6 +41,36 @@ const io = new Server(server, {
   addTrailingSlash: false,
   cors: { origin: process.env.NEXT_PUBLIC_BASE_URL || '*' }
 });
+
+// Game Loop
+setInterval(() => {
+  for (const [code, game] of games.entries()) {
+    game.update();
+    if (game.status === 'gameover') {
+        // Handle game over (save to DB)
+        saveGameResults(game);
+        games.delete(code);
+    }
+  }
+}, 1000 / 60);
+
+async function saveGameResults(game) {
+    try {
+        const duration = Math.floor((Date.now() - game.startTime) / 1000);
+        await prisma.leaderboard.create({
+            data: {
+                displayName: Array.from(game.players.values()).map(p => p.displayName).join(', '),
+                score: game.score,
+                wavesCleared: game.wave - 1,
+                duration,
+                mode: game.isCoop ? 'coop' : 'solo',
+                partyId: game.code.length > 6 ? null : game.code // Simple check if it's a party code
+            }
+        });
+    } catch (e) {
+        console.error('Failed to save game results:', e);
+    }
+}
 
 io.on('connection', (socket) => {
   connections.set(socket.id, {});
@@ -292,6 +324,19 @@ io.on('connection', (socket) => {
     io.to(party.code).emit('seat:lock', { locked });
   });
 
+  socket.on('host:launchGame', async (payload) => {
+    const code = normalizeCode(payload?.code);
+    if (!isValidCode(code)) return;
+    const connection = connections.get(socket.id);
+    if (!connection?.participantId || !connection.partyId) return;
+    const host = await prisma.participant.findFirst({
+      where: { id: connection.participantId, partyId: connection.partyId, isHost: true, leftAt: null }
+    });
+    if (!host) return;
+
+    io.to(code).emit('party:gameLaunch', { game: 'spacelight' });
+  });
+
   socket.on('host:mute', async (payload) => {
     const code = normalizeCode(payload?.code);
     if (!isValidCode(code)) return;
@@ -356,6 +401,31 @@ io.on('connection', (socket) => {
     io.to(code).emit('presence:update', { participantId: payload.targetParticipantId, left: true });
   });
 
+  socket.on('game:join', async (payload) => {
+    const code = normalizeCode(payload?.code);
+    const displayName = payload?.displayName || 'Unknown Pilot';
+
+    let game = games.get(code);
+    if (!game) {
+        game = new SpacelightGame(io, code, payload?.isCoop);
+        games.set(code, game);
+    }
+
+    socket.join(code);
+    game.addPlayer(socket.id, displayName);
+    socket.emit('game:joined', { code, playerId: socket.id });
+  });
+
+  socket.on('game:input', (payload) => {
+    const connection = connections.get(socket.id);
+    // Use code from payload or connection
+    const code = normalizeCode(payload?.code);
+    const game = games.get(code);
+    if (game) {
+        game.handleInput(socket.id, payload.input);
+    }
+  });
+
   socket.on('playlist:update', async (payload) => {
     const code = normalizeCode(payload?.code);
     if (!isValidCode(code)) return;
@@ -382,6 +452,13 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', async () => {
+    // Remove from games
+    for (const [code, game] of games.entries()) {
+        if (game.players.has(socket.id)) {
+            game.removePlayer(socket.id);
+        }
+    }
+
     const connection = connections.get(socket.id);
     if (connection?.participantId) {
       await prisma.participant.updateMany({
