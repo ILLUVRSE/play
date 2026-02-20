@@ -451,6 +451,18 @@ io.on('connection', (socket) => {
     io.to(code).emit('playlist:update', { playlist });
   });
 
+  socket.on('game:input', (payload) => {
+    socket.to(payload.partyId).emit('game:input', payload);
+  });
+
+  socket.on('game:state', (payload) => {
+    socket.to(payload.partyId).emit('game:state', payload.state);
+  });
+
+  socket.on('game:start', (payload) => {
+    io.to(payload.partyId).emit('game:start', payload);
+  });
+
   socket.on('disconnect', async () => {
     // Remove from games
     for (const [code, game] of games.entries()) {
