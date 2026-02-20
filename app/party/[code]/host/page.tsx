@@ -12,15 +12,16 @@ import type { Socket } from 'socket.io-client';
 
 type Participant = { id: string; seatId: string; displayName: string; isHost: boolean; muted: boolean };
 type Party = {
+  id: string;
   code: string;
   title: string;
-  contentType: 'youtube' | 'mp3' | 'mp4';
+  contentType: 'youtube' | 'mp3' | 'mp4' | 'game';
   contentUrl: string;
   maxSeats: number;
   participants: Participant[];
   status: string;
   seatMap: { rows: number; cols: number; seats: string[] };
-  playlist: { id: string; orderIndex: number; contentType: 'youtube' | 'mp3' | 'mp4'; contentUrl: string; title?: string | null }[];
+  playlist: { id: string; orderIndex: number; contentType: 'youtube' | 'mp3' | 'mp4' | 'game'; contentUrl: string; title?: string | null }[];
   currentIndex: number;
   micLocked: boolean;
   seatLocked: boolean;
@@ -278,10 +279,12 @@ export default function HostPartyView() {
         <div className="grid lg:grid-cols-[1.5fr_1fr] gap-4 items-start">
           <div className="space-y-4">
             <PartyPlayer
+              partyId={party.id}
               code={party.code}
-              playlist={playlist}
+              playlist={playlist as any}
               currentIndex={currentIndex}
               isHost
+              participantId={participantId}
             />
             <section className="glass p-4 border-brand-primary/30 text-sm text-white/80 space-y-3">
               <div className="flex items-center justify-between">
