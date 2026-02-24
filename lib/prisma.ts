@@ -17,3 +17,5 @@ export function getPrisma(): PrismaClient {
   }
   return client;
 }
+
+export const prisma = getPrisma();

@@ -25,7 +25,7 @@ export function MemeModal({ onShare }: { onShare: (image: string) => void }) {
     <div className="glass p-3 space-y-2">
       <input value={idea} onChange={(e) => setIdea(e.target.value)} placeholder="Meme idea" className="w-full bg-black/30 border border-white/20 rounded px-2 py-1" />
       <button onClick={generate} className="button-primary" disabled={loading}>{loading ? 'Generating...' : 'Generate Meme'}</button>
-      {image ? <img src={image} alt="Generated meme" className="rounded border border-white/20" /> : null}
+      {image ? <img src={image} alt="Generated meme" width={320} height={320} className="rounded border border-white/20 w-full h-auto" /> : null}
       {image ? <button onClick={() => onShare(image)} className="button-primary">Share to Party</button> : null}
     </div>
   );

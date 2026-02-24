@@ -6,9 +6,9 @@ import { SpacelightArena } from '@/components/game/SpacelightArena';
 
 function GameContent() {
   const searchParams = useSearchParams();
-  const code = searchParams.get('code') || 'DEFAULT';
-  const name = searchParams.get('name') || 'Pilot';
-  const mode = searchParams.get('mode') || 'solo';
+  const code = searchParams?.get('code') || 'DEFAULT';
+  const name = searchParams?.get('name') || 'Pilot';
+  const mode = searchParams?.get('mode') || 'solo';
 
   return (
     <div className="min-h-screen bg-[#000510] flex flex-col items-center justify-center p-4">

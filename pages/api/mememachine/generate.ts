@@ -38,7 +38,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
   const cleanIdea = String(idea).trim();
   const top = String(topText).trim();
   const bottom = String(bottomText).trim();
-  const aspectKey = aspect === '4:5' || aspect === '16:9' ? aspect : '1:1';
+  const aspectKey: '1:1' | '4:5' | '16:9' = aspect === '4:5' || aspect === '16:9' ? aspect : '1:1';
 
   if (cleanIdea.length < 3 || cleanIdea.length > 400) {
     return res.status(400).json({ error: 'Idea must be 3-400 characters' });

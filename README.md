@@ -116,3 +116,29 @@ Vercel serverless routes do not keep WebSocket upgrades open, so run the Socket.
 - Meme generation caching endpoint: `POST /api/mememachine/generate_cached`.
 - Async meme endpoints: `POST /api/mememachine/generate_async`, `GET /api/mememachine/status`, and `GET /api/mememachine/get`.
 - For async jobs run `ts-node workers/mememachine.worker.ts` (requires `OPENAI_API_KEY`).
+
+
+## Meme worker modes (Redis + DB fallback)
+- Redis mode: set `REDIS_URL` (or `REDIS_HOST`) and run:
+  ```bash
+  ts-node workers/mememachine.worker.ts
+  ```
+- DB fallback mode (no Redis): leave `REDIS_URL` unset and run the same command. The worker polls `MemeJob` rows with `status=pending` every few seconds.
+- Required for worker processing: `OPENAI_API_KEY` (server key only). Jobs that require a client key are rejected by the worker.
+
+### Meme storage options
+- Default: stores generated base64 in `MemeCache.b64_png`.
+- S3 mode: set `MEME_S3_BUCKET`, `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` to upload PNGs and store only `MemeCache.s3Key`.
+- Size guard: set `MEME_MAX_DB_SIZE` (default `2000000`) to cap DB-stored base64 payloads.
+
+## Deterministic smoke / CI testing
+- Enable deterministic OpenAI mocking:
+  ```bash
+  TEST_OPENAI_MOCK=true
+  ```
+- Run smoke script (starts dev server + worker in DB fallback mode, then captures `/host` screenshot):
+  ```bash
+  ts-node tests/e2e/smoke.ts
+  ```
+- Expected artifact path:
+  - `tests/e2e/artifacts/host.png`

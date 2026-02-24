@@ -11,8 +11,8 @@ const NeonRift = dynamic(() => import('@/components/game/NeonRift').then(mod => 
 
 function GameContent() {
   const searchParams = useSearchParams();
-  const code = searchParams.get('code') || 'DEFAULT';
-  const name = searchParams.get('name') || 'Racer';
+  const code = searchParams?.get('code') || 'DEFAULT';
+  const name = searchParams?.get('name') || 'Racer';
 
   return (
     <div className="min-h-screen bg-[#050010] flex flex-col items-center justify-center p-0 sm:p-4 overflow-hidden">

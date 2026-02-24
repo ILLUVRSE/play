@@ -139,7 +139,8 @@ model PlayerScore {
 model MemeCache {
   id         Int      @id @default(autoincrement())
   inputHash  String   @unique
-  b64_png    String   @db.Text
+  b64_png    String?  @db.Text
+  s3Key      String?
   width      Int
   height     Int
   aspect     String
@@ -155,6 +156,7 @@ model MemeJob {
   attempts   Int      @default(0)
   error      String?
   payload    Json
+  requiresClientKey Boolean @default(false)
   resultId   Int?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
