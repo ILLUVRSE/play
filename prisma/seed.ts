@@ -8,6 +8,11 @@ async function main() {
   await prisma.message.deleteMany({});
   await prisma.participant.deleteMany({});
   await prisma.playbackState.deleteMany({});
+  await prisma.playerScore.deleteMany({});
+  await prisma.gameSession.deleteMany({});
+  await prisma.game.deleteMany({});
+  await prisma.memeJob.deleteMany({});
+  await prisma.memeCache.deleteMany({});
   await prisma.party.deleteMany({});
 
   const seeds = [
@@ -36,6 +41,16 @@ async function main() {
       theme: 'Chill'
     }
   ];
+
+
+  await prisma.game.createMany({
+    data: [
+      { slug: 'forehead-poker', name: 'Forehead Poker', description: '3-card social poker with hidden self cards' },
+      { slug: 'caption-battle', name: 'Caption Battle', description: 'Write and vote captions on memes' },
+      { slug: 'pictionary', name: 'Pictionary', description: 'Draw and guess in real-time' }
+    ],
+    skipDuplicates: true
+  });
 
   for (const seed of seeds) {
     let code = generatePartyCode();

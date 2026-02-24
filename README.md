@@ -109,3 +109,10 @@ Vercel serverless routes do not keep WebSocket upgrades open, so run the Socket.
 - `npx prisma db seed`
 - `npm run dev -- --hostname 127.0.0.1 --port 3050` (smoke-tested with `curl http://127.0.0.1:3050`)
 - `npm run build`
+
+## Party games + meme engine
+- New games are available in-party via the **GameLauncher**: Forehead Poker, Caption Battle, and Pictionary.
+- Socket events now include `game:create`, `game:action`, `drawing:stroke`, and `drawing:clear` for real-time game state updates.
+- Meme generation caching endpoint: `POST /api/mememachine/generate_cached`.
+- Async meme endpoints: `POST /api/mememachine/generate_async`, `GET /api/mememachine/status`, and `GET /api/mememachine/get`.
+- For async jobs run `ts-node workers/mememachine.worker.ts` (requires `OPENAI_API_KEY`).
