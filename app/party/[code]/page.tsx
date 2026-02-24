@@ -8,6 +8,7 @@ import { PartyPlayer } from '@/components/PartyPlayer';
 import { ReactionBar } from '@/components/ReactionBar';
 import { PresenceBar } from '@/components/PresenceBar';
 import { VoiceGrid } from '@/components/VoiceGrid';
+import { GameLauncher } from '@/components/games/GameLauncher';
 import { ensureSocket } from '@/lib/socketClient';
 import type { Socket } from 'socket.io-client';
 
@@ -251,6 +252,7 @@ export default function PartyRoomPage() {
               <div className="text-white/60 text-sm">No play/pause controls.</div>
             </div>
             <ReactionBar code={party.code} seatId={seatId} displayName={displayName} />
+            <GameLauncher code={party.code} isHost={isHost} socketRef={socketRef} />
           </div>
           <div className="w-full lg:w-[320px] shrink-0">
             <VoiceGrid

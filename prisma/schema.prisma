@@ -26,6 +26,7 @@ model Party {
   messages   Message[]
   playback   PlaybackState?
   playlist   PlaylistItem[]
+  gameSessions GameSession[]
 }
 
 model Leaderboard {
@@ -58,6 +59,8 @@ model Participant {
   joinedAt     DateTime @default(now())
   leftAt       DateTime?
   messages     Message[]
+  scores       PlayerScore[]
+  hostedSessions GameSession[] @relation("HostedGameSessions")
 }
 
 model Message {
@@ -89,4 +92,72 @@ model PlaylistItem {
   contentUrl  String
   title       String?
   createdAt   DateTime @default(now())
+}
+
+model Game {
+  id          Int      @id @default(autoincrement())
+  slug        String   @unique
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  sessions    GameSession[]
+}
+
+model GameSession {
+  id         Int      @id @default(autoincrement())
+  partyCode  String
+  partyId    String
+  gameId     Int
+  hostId     String
+  state      Json
+  status     String   @default("idle")
+  metadata   Json?
+  startedAt  DateTime?
+  endedAt    DateTime?
+  createdAt  DateTime @default(now())
+
+  party      Party        @relation(fields: [partyId], references: [id])
+  game       Game         @relation(fields: [gameId], references: [id])
+  host       Participant  @relation("HostedGameSessions", fields: [hostId], references: [id])
+  scores     PlayerScore[]
+
+  @@index([partyCode])
+}
+
+model PlayerScore {
+  id            Int     @id @default(autoincrement())
+  sessionId     Int
+  participantId String
+  score         Int     @default(0)
+
+  session       GameSession @relation(fields: [sessionId], references: [id])
+  participant   Participant @relation(fields: [participantId], references: [id])
+
+  @@unique([sessionId, participantId])
+}
+
+model MemeCache {
+  id         Int      @id @default(autoincrement())
+  inputHash  String   @unique
+  b64_png    String   @db.Text
+  width      Int
+  height     Int
+  aspect     String
+  createdAt  DateTime @default(now())
+  jobs       MemeJob[]
+}
+
+model MemeJob {
+  id         Int      @id @default(autoincrement())
+  jobId      String   @unique
+  inputHash  String
+  status     String
+  attempts   Int      @default(0)
+  error      String?
+  payload    Json
+  resultId   Int?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  result     MemeCache? @relation(fields: [resultId], references: [id])
 }

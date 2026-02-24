@@ -3,12 +3,14 @@ const { Server } = require('socket.io');
 const { PrismaClient } = require('@prisma/client');
 const { AccessToken, RoomServiceClient } = require('livekit-server-sdk');
 const SpacelightGame = require('./game/SpacelightGame');
+const { registerGameHandlers } = require('./socket/games');
 
 const prisma = new PrismaClient();
 const connections = new Map();
 const participantSockets = new Map();
 const lastMessageAt = new Map();
 const games = new Map(); // gameCode -> SpacelightGame
+const gameRateLimitMap = new Map();
 
 const livekitUrl = process.env.LIVEKIT_URL || process.env.NEXT_PUBLIC_LIVEKIT_URL || '';
 const livekitApiKey = process.env.LIVEKIT_API_KEY || '';
@@ -245,6 +247,8 @@ io.on('connection', (socket) => {
       });
     }
   });
+
+  registerGameHandlers({ io, socket, prisma, connections, rateLimitMap: gameRateLimitMap, normalizeCode, isValidCode });
 
   socket.on('voice:join', async (payload, callback) => {
     const code = normalizeCode(payload?.code);
