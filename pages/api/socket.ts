@@ -247,7 +247,7 @@ export default function handler(_req: NextApiRequest, res: NextApiResponseServer
       });
       token.addGrant({ roomJoin: true, room: party.code, canPublish: true, canSubscribe: true });
       callback?.({
-        token: token.toJwt(),
+        token: await token.toJwt(),
         roomName: party.code,
         micLocked: party.micLocked,
         seatLocked: party.seatLocked

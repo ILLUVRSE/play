@@ -28,7 +28,7 @@ export async function createSession({ partyCode, gameSlug, hostId, options = {} 
       gameId: game.id,
       hostId,
       status: 'idle',
-      state: adapter.init(options)
+      state: adapter.init(options) as any
     },
     include: { game: true }
   });
@@ -41,7 +41,7 @@ export async function persistAction(sessionId: number, participantId: string, ac
   const adapter = getAdapter(session.game.slug);
   if (!adapter) throw new Error('Adapter not found');
   const nextState = adapter.applyAction(session.state as any, action, { participantId, isHost });
-  return prisma.gameSession.update({ where: { id: sessionId }, data: { state: nextState } });
+  return prisma.gameSession.update({ where: { id: sessionId }, data: { state: nextState as any } });
 }
 
 export function memeInputHash(payload: any) {

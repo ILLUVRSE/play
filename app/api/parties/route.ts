@@ -66,7 +66,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Content must be a YouTube, MP3, or MP4 link' }, { status: 400 });
   }
 
-  const fallbackType = detectContentType(parsed.data.contentUrl);
+  const fallbackType = detectContentType(parsed.data.contentUrl || "");
   if (!playlist?.length && !fallbackType) {
     return NextResponse.json({ error: 'Content must be a YouTube, MP3, or MP4 link' }, { status: 400 });
   }
